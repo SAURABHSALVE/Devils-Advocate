@@ -1,34 +1,78 @@
 import os
-from supabase import create_client
-from dotenv import load_dotenv
-load_dotenv()
+import sqlite3
+import uuid
+import hashlib
+import json
+from datetime import datetime
 
-SUPABASE_URL = os.getenv("SUPABASE_URL")
-SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_KEY")
-SUPABASE_ANON_KEY = os.getenv("SUPABASE_ANON_KEY")
+DB_PATH = os.path.join(os.path.dirname(__file__), "shadowboard.db")
 
-# Service client — full access (for backend operations)
-supabase = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
 
-# Anon client — for auth operations
-supabase_auth = create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
+def get_db():
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+
+def init_db():
+    conn = get_db()
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS users (
+            user_id TEXT PRIMARY KEY,
+            email TEXT UNIQUE NOT NULL,
+            password_hash TEXT NOT NULL,
+            name TEXT NOT NULL,
+            created_at TEXT DEFAULT (datetime('now'))
+        )
+    """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS sessions (
+            session_id TEXT PRIMARY KEY,
+            user_id TEXT NOT NULL,
+            question TEXT NOT NULL,
+            context TEXT DEFAULT '',
+            board_type TEXT DEFAULT 'tech',
+            votes TEXT DEFAULT '{}',
+            moderator_summary TEXT DEFAULT '',
+            created_at TEXT DEFAULT (datetime('now')),
+            FOREIGN KEY (user_id) REFERENCES users(user_id)
+        )
+    """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS comparisons (
+            comparison_id TEXT PRIMARY KEY,
+            user_id TEXT NOT NULL,
+            option_a TEXT NOT NULL,
+            option_b TEXT NOT NULL,
+            context TEXT DEFAULT '',
+            board_type TEXT DEFAULT 'tech',
+            votes_a TEXT DEFAULT '{}',
+            votes_b TEXT DEFAULT '{}',
+            comparison_summary TEXT DEFAULT '',
+            created_at TEXT DEFAULT (datetime('now')),
+            FOREIGN KEY (user_id) REFERENCES users(user_id)
+        )
+    """)
+    conn.commit()
+    conn.close()
+
+
+def _hash_password(password: str) -> str:
+    return hashlib.sha256(password.encode()).hexdigest()
 
 
 def signup_user(email, password, name):
     try:
-        response = supabase_auth.auth.sign_up({
-            "email": email,
-            "password": password,
-            "options": {
-                "data": {"name": name}
-            }
-        })
-        if response.user:
-            return {
-                "user_id": str(response.user.id),
-                "email": response.user.email,
-                "name": name
-            }
+        conn = get_db()
+        user_id = str(uuid.uuid4())
+        conn.execute(
+            "INSERT INTO users (user_id, email, password_hash, name) VALUES (?, ?, ?, ?)",
+            (user_id, email, _hash_password(password), name)
+        )
+        conn.commit()
+        conn.close()
+        return {"user_id": user_id, "email": email, "name": name}
+    except sqlite3.IntegrityError:
         return None
     except Exception as e:
         print(f"Signup error: {e}")
@@ -37,17 +81,14 @@ def signup_user(email, password, name):
 
 def login_user(email, password):
     try:
-        response = supabase_auth.auth.sign_in_with_password({
-            "email": email,
-            "password": password
-        })
-        if response.user:
-            name = response.user.user_metadata.get("name", "")
-            return {
-                "user_id": str(response.user.id),
-                "email": response.user.email,
-                "name": name
-            }
+        conn = get_db()
+        row = conn.execute(
+            "SELECT user_id, email, name FROM users WHERE email = ? AND password_hash = ?",
+            (email, _hash_password(password))
+        ).fetchone()
+        conn.close()
+        if row:
+            return {"user_id": row["user_id"], "email": row["email"], "name": row["name"]}
         return None
     except Exception as e:
         print(f"Login error: {e}")
@@ -56,25 +97,30 @@ def login_user(email, password):
 
 def save_session(session_id, user_id, question, context, board_type, votes, moderator_summary):
     try:
-        supabase.table("sessions").insert({
-            "session_id": session_id,
-            "user_id": user_id,
-            "question": question,
-            "context": context,
-            "board_type": board_type,
-            "votes": votes,
-            "moderator_summary": moderator_summary[:2000]
-        }).execute()
+        conn = get_db()
+        conn.execute(
+            "INSERT INTO sessions (session_id, user_id, question, context, board_type, votes, moderator_summary) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (session_id, user_id, question, context, board_type, json.dumps(votes), moderator_summary[:2000])
+        )
+        conn.commit()
+        conn.close()
     except Exception as e:
         print(f"Save session error: {e}")
 
 
 def get_user_sessions(user_id):
     try:
-        response = supabase.table("sessions").select("*").eq(
-            "user_id", user_id
-        ).order("created_at", desc=True).execute()
-        return response.data
+        conn = get_db()
+        rows = conn.execute(
+            "SELECT * FROM sessions WHERE user_id = ? ORDER BY created_at DESC", (user_id,)
+        ).fetchall()
+        conn.close()
+        results = []
+        for row in rows:
+            d = dict(row)
+            d["votes"] = json.loads(d.get("votes", "{}"))
+            results.append(d)
+        return results
     except Exception as e:
         print(f"Get sessions error: {e}")
         return []
@@ -82,10 +128,36 @@ def get_user_sessions(user_id):
 
 def get_session(session_id):
     try:
-        response = supabase.table("sessions").select("*").eq(
-            "session_id", session_id
-        ).single().execute()
-        return response.data
+        conn = get_db()
+        row = conn.execute(
+            "SELECT * FROM sessions WHERE session_id = ?", (session_id,)
+        ).fetchone()
+        conn.close()
+        if row:
+            d = dict(row)
+            d["votes"] = json.loads(d.get("votes", "{}"))
+            return d
+        return None
     except Exception as e:
         print(f"Get session error: {e}")
         return None
+
+
+def save_comparison(comparison_id, user_id, option_a, option_b, context,
+                    board_type, votes_a, votes_b, comparison_summary):
+    """Save a scenario comparison session."""
+    try:
+        conn = get_db()
+        conn.execute(
+            "INSERT INTO comparisons (comparison_id, user_id, option_a, option_b, context, board_type, votes_a, votes_b, comparison_summary) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (comparison_id, user_id, option_a, option_b, context, board_type,
+             json.dumps(votes_a), json.dumps(votes_b), comparison_summary[:3000])
+        )
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        print(f"Save comparison error: {e}")
+
+
+# Initialize database on import
+init_db()

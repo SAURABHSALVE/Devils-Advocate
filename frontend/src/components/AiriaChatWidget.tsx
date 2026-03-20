@@ -51,7 +51,6 @@ const AiriaChatWidget: React.FC = () => {
     }
   }, [isOpen]);
 
-  // Auto-resize textarea
   useEffect(() => {
     if (inputRef.current) {
       inputRef.current.style.height = 'auto';
@@ -125,7 +124,7 @@ const AiriaChatWidget: React.FC = () => {
 
   return (
     <>
-      {/* ── Floating toggle button ── */}
+      {/* Floating toggle button */}
       <AnimatePresence>
         {!isOpen && (
           <motion.button
@@ -137,8 +136,13 @@ const AiriaChatWidget: React.FC = () => {
             className="fixed bottom-6 right-6 z-[9999] group"
             aria-label="Open chat"
           >
-            <div className="relative w-14 h-14 rounded-full flex items-center justify-center gold-gradient gold-glow hover:scale-110 active:scale-95 transition-transform cursor-pointer shadow-2xl">
-              <MessageCircle size={22} className="text-primary-foreground" />
+            <div className="relative w-14 h-14 rounded-full flex items-center justify-center shadow-2xl"
+              style={{
+                background: 'linear-gradient(135deg, hsl(40, 52%, 58%), hsl(35, 60%, 45%))',
+                boxShadow: '0 8px 32px -4px hsla(40, 52%, 58%, 0.4), 0 0 0 1px hsla(40, 52%, 58%, 0.2)',
+              }}
+            >
+              <MessageCircle size={22} className="text-white" />
               {hasNewMessage && (
                 <span className="absolute -top-0.5 -right-0.5 flex h-4 w-4">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
@@ -146,13 +150,13 @@ const AiriaChatWidget: React.FC = () => {
                 </span>
               )}
             </div>
-            {/* Tooltip */}
             <div
-              className="absolute bottom-full right-0 mb-3 px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none backdrop-blur-sm"
+              className="absolute bottom-full right-0 mb-3 px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"
               style={{
                 background: 'hsla(222, 47%, 14%, 0.95)',
                 border: '1px solid hsla(40, 52%, 58%, 0.2)',
                 color: 'hsl(40, 52%, 68%)',
+                backdropFilter: 'blur(8px)',
               }}
             >
               Chat with AIRIA
@@ -161,7 +165,7 @@ const AiriaChatWidget: React.FC = () => {
         )}
       </AnimatePresence>
 
-      {/* ── Chat panel ── */}
+      {/* Chat panel */}
       <AnimatePresence>
         {isOpen && (
           <motion.div
@@ -169,27 +173,30 @@ const AiriaChatWidget: React.FC = () => {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 24, scale: 0.92 }}
             transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-            className="fixed bottom-6 right-6 z-[9999] w-[420px] h-[600px] flex flex-col rounded-2xl overflow-hidden shadow-2xl"
+            className="fixed bottom-6 right-6 z-[9999] flex flex-col rounded-2xl overflow-hidden shadow-2xl"
             style={{
+              width: 'min(420px, calc(100vw - 48px))',
+              height: 'min(600px, calc(100vh - 100px))',
               background: 'hsl(222, 47%, 11%)',
               border: '1px solid hsla(40, 52%, 58%, 0.18)',
               boxShadow:
-                '0 25px 60px -12px rgba(0, 0, 0, 0.7), 0 0 60px -15px hsla(40, 52%, 58%, 0.15), inset 0 1px 0 hsla(40, 52%, 58%, 0.05)',
+                '0 25px 60px -12px rgba(0, 0, 0, 0.7), 0 0 60px -15px hsla(40, 52%, 58%, 0.15)',
             }}
           >
-            {/* ── Header ── */}
+            {/* Header */}
             <div
               className="flex items-center justify-between px-5 py-3.5 flex-shrink-0"
               style={{
-                background:
-                  'linear-gradient(135deg, hsla(222, 47%, 16%, 1), hsla(222, 47%, 13%, 1))',
+                background: 'linear-gradient(135deg, hsla(222, 47%, 16%, 1), hsla(222, 47%, 13%, 1))',
                 borderBottom: '1px solid hsla(40, 52%, 58%, 0.12)',
               }}
             >
               <div className="flex items-center gap-3">
                 <div className="relative">
-                  <div className="w-10 h-10 rounded-xl gold-gradient flex items-center justify-center shadow-lg">
-                    <Sparkles size={18} className="text-primary-foreground" />
+                  <div className="w-10 h-10 rounded-xl flex items-center justify-center shadow-lg"
+                    style={{ background: 'linear-gradient(135deg, hsl(40, 52%, 58%), hsl(35, 60%, 45%))' }}
+                  >
+                    <Sparkles size={18} className="text-white" />
                   </div>
                   <span
                     className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-emerald-400 border-2 shadow-sm"
@@ -197,13 +204,10 @@ const AiriaChatWidget: React.FC = () => {
                   />
                 </div>
                 <div>
-                  <h3 className="text-sm font-semibold text-foreground leading-tight tracking-wide">
+                  <h3 className="text-sm font-semibold leading-tight tracking-wide" style={{ color: 'hsl(210, 40%, 98%)' }}>
                     AIRIA Assistant
                   </h3>
-                  <p
-                    className="text-[10px] font-mono uppercase tracking-[0.2em] mt-0.5"
-                    style={{ color: 'hsl(160, 84%, 45%)' }}
-                  >
+                  <p className="text-[10px] font-mono uppercase tracking-[0.2em] mt-0.5" style={{ color: 'hsl(160, 84%, 45%)' }}>
                     Online
                   </p>
                 </div>
@@ -211,7 +215,10 @@ const AiriaChatWidget: React.FC = () => {
               <div className="flex items-center gap-1">
                 <button
                   onClick={clearChat}
-                  className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-white/5 transition-all"
+                  className="w-8 h-8 rounded-lg flex items-center justify-center transition-all"
+                  style={{ color: 'hsl(215, 20%, 55%)' }}
+                  onMouseEnter={(e) => { e.currentTarget.style.color = 'hsl(210, 40%, 90%)'; e.currentTarget.style.background = 'hsla(210, 40%, 98%, 0.06)'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.color = 'hsl(215, 20%, 55%)'; e.currentTarget.style.background = 'transparent'; }}
                   aria-label="Clear chat"
                   title="Clear chat"
                 >
@@ -219,7 +226,10 @@ const AiriaChatWidget: React.FC = () => {
                 </button>
                 <button
                   onClick={() => setIsOpen(false)}
-                  className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-white/5 transition-all"
+                  className="w-8 h-8 rounded-lg flex items-center justify-center transition-all"
+                  style={{ color: 'hsl(215, 20%, 55%)' }}
+                  onMouseEnter={(e) => { e.currentTarget.style.color = 'hsl(210, 40%, 90%)'; e.currentTarget.style.background = 'hsla(210, 40%, 98%, 0.06)'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.color = 'hsl(215, 20%, 55%)'; e.currentTarget.style.background = 'transparent'; }}
                   aria-label="Close chat"
                 >
                   <X size={16} />
@@ -227,13 +237,12 @@ const AiriaChatWidget: React.FC = () => {
               </div>
             </div>
 
-            {/* ── Messages ── */}
+            {/* Messages */}
             <div
               ref={messagesContainerRef}
               className="flex-1 overflow-y-auto px-4 py-4 space-y-5"
               style={{
-                background:
-                  'linear-gradient(180deg, hsl(222, 47%, 12%) 0%, hsl(222, 47%, 10%) 100%)',
+                background: 'linear-gradient(180deg, hsl(222, 47%, 12%) 0%, hsl(222, 47%, 10%) 100%)',
               }}
             >
               {messages.map((msg, i) => (
@@ -244,11 +253,8 @@ const AiriaChatWidget: React.FC = () => {
                   transition={{ duration: 0.3, delay: 0.05 }}
                   className={`flex gap-3 ${msg.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}
                 >
-                  {/* Avatar */}
                   <div
-                    className={`flex-shrink-0 w-8 h-8 rounded-xl flex items-center justify-center mt-0.5 shadow-sm ${
-                      msg.role === 'assistant' ? '' : ''
-                    }`}
+                    className="flex-shrink-0 w-8 h-8 rounded-xl flex items-center justify-center mt-0.5 shadow-sm"
                     style={{
                       background:
                         msg.role === 'assistant'
@@ -267,13 +273,10 @@ const AiriaChatWidget: React.FC = () => {
                     )}
                   </div>
 
-                  {/* Bubble + timestamp */}
                   <div className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'} max-w-[80%]`}>
                     <div
                       className={`px-4 py-3 text-[13px] leading-relaxed ${
-                        msg.role === 'assistant'
-                          ? 'rounded-2xl rounded-tl-sm'
-                          : 'rounded-2xl rounded-tr-sm'
+                        msg.role === 'assistant' ? 'rounded-2xl rounded-tl-sm' : 'rounded-2xl rounded-tr-sm'
                       }`}
                       style={{
                         background:
@@ -296,10 +299,7 @@ const AiriaChatWidget: React.FC = () => {
                         <span>{msg.content}</span>
                       )}
                     </div>
-                    <span
-                      className="text-[10px] mt-1.5 px-1 font-mono"
-                      style={{ color: 'hsla(215, 20%, 55%, 0.5)' }}
-                    >
+                    <span className="text-[10px] mt-1.5 px-1 font-mono" style={{ color: 'hsla(215, 20%, 55%, 0.5)' }}>
                       {formatTime(msg.timestamp)}
                     </span>
                   </div>
@@ -308,16 +308,11 @@ const AiriaChatWidget: React.FC = () => {
 
               {/* Typing indicator */}
               {isLoading && (
-                <motion.div
-                  initial={{ opacity: 0, y: 12 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="flex gap-3"
-                >
+                <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="flex gap-3">
                   <div
                     className="flex-shrink-0 w-8 h-8 rounded-xl flex items-center justify-center mt-0.5"
                     style={{
-                      background:
-                        'linear-gradient(135deg, hsla(40, 52%, 58%, 0.15), hsla(40, 52%, 58%, 0.08))',
+                      background: 'linear-gradient(135deg, hsla(40, 52%, 58%, 0.15), hsla(40, 52%, 58%, 0.08))',
                       border: '1px solid hsla(40, 52%, 58%, 0.15)',
                     }}
                   >
@@ -331,9 +326,16 @@ const AiriaChatWidget: React.FC = () => {
                     }}
                   >
                     <div className="flex gap-1.5 items-center h-4">
-                      <span className="w-2 h-2 rounded-full typing-dot" style={{ background: 'hsl(40, 52%, 58%)' }} />
-                      <span className="w-2 h-2 rounded-full typing-dot" style={{ background: 'hsl(40, 52%, 58%)' }} />
-                      <span className="w-2 h-2 rounded-full typing-dot" style={{ background: 'hsl(40, 52%, 58%)' }} />
+                      {[0, 1, 2].map((i) => (
+                        <span
+                          key={i}
+                          className="w-2 h-2 rounded-full animate-pulse"
+                          style={{
+                            background: 'hsl(40, 52%, 58%)',
+                            animationDelay: `${i * 0.2}s`,
+                          }}
+                        />
+                      ))}
                     </div>
                   </div>
                 </motion.div>
@@ -342,7 +344,7 @@ const AiriaChatWidget: React.FC = () => {
               <div ref={messagesEndRef} />
             </div>
 
-            {/* ── Suggestion chips ── */}
+            {/* Suggestion chips */}
             {showSuggestions && (
               <div
                 className="px-4 pb-2 pt-2.5 flex flex-wrap gap-2 flex-shrink-0"
@@ -376,7 +378,7 @@ const AiriaChatWidget: React.FC = () => {
               </div>
             )}
 
-            {/* ── Input area ── */}
+            {/* Input area */}
             <div
               className="px-4 pb-4 pt-3 flex-shrink-0"
               style={{
@@ -400,8 +402,8 @@ const AiriaChatWidget: React.FC = () => {
                   placeholder="Ask anything..."
                   disabled={isLoading}
                   rows={1}
-                  className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground/40 outline-none disabled:opacity-50 resize-none leading-relaxed py-0.5"
-                  style={{ maxHeight: '100px' }}
+                  className="flex-1 bg-transparent text-sm placeholder:text-muted-foreground/40 outline-none disabled:opacity-50 resize-none leading-relaxed py-0.5"
+                  style={{ maxHeight: '100px', color: 'hsl(210, 40%, 95%)' }}
                 />
                 <button
                   onClick={() => sendMessage()}
@@ -413,21 +415,13 @@ const AiriaChatWidget: React.FC = () => {
                         ? 'linear-gradient(135deg, hsl(40, 52%, 58%), hsl(35, 60%, 50%))'
                         : 'transparent',
                     color:
-                      input.trim() && !isLoading
-                        ? 'hsl(222, 47%, 11%)'
-                        : 'hsl(215, 20%, 45%)',
+                      input.trim() && !isLoading ? 'hsl(222, 47%, 11%)' : 'hsl(215, 20%, 45%)',
                     boxShadow:
-                      input.trim() && !isLoading
-                        ? '0 4px 12px -2px hsla(40, 52%, 58%, 0.3)'
-                        : 'none',
+                      input.trim() && !isLoading ? '0 4px 12px -2px hsla(40, 52%, 58%, 0.3)' : 'none',
                   }}
                   aria-label="Send message"
                 >
-                  {isLoading ? (
-                    <Loader2 size={16} className="animate-spin" />
-                  ) : (
-                    <Send size={16} />
-                  )}
+                  {isLoading ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
                 </button>
               </div>
               <p

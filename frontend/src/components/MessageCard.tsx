@@ -8,6 +8,7 @@ export interface AgentMessage {
   phase: string;
   text: string;
   round?: number;
+  scenario?: string;
 }
 
 const AGENTS: Record<string, { name: string; title: string; emoji: string; color: string; borderColor: string; bgColor: string; ringColor: string }> = {
@@ -39,13 +40,17 @@ interface MessageCardProps {
   message: AgentMessage;
   index: number;
   sessionId: string | null;
+  isComparison?: boolean;
 }
 
-const MessageCard: React.FC<MessageCardProps> = ({ message, index, sessionId }) => {
+const MessageCard: React.FC<MessageCardProps> = ({ message, index, sessionId, isComparison }) => {
   const agent = getAgent(message.agent);
   const isModerator = message.agent.toLowerCase() === 'moderator';
   const isSynthesis = message.phase?.toLowerCase().includes('synthesis');
   const stance = getStanceBadge(message.text);
+
+  // Determine the scenario label for comparison mode moderator cards
+  const scenarioLabel = message.scenario === 'A' ? 'Option A' : message.scenario === 'B' ? 'Option B' : '';
 
   // Moderator synthesis gets special treatment
   if (isModerator && isSynthesis) {
@@ -67,20 +72,24 @@ const MessageCard: React.FC<MessageCardProps> = ({ message, index, sessionId }) 
             </div>
             <div>
               <h3 className="text-mod font-serif text-xl font-semibold">Board Moderator</h3>
-              <p className="text-mod/60 text-xs font-mono uppercase tracking-wider">Final Strategy Brief</p>
+              <p className="text-mod/60 text-xs font-mono uppercase tracking-wider">
+                {isComparison && scenarioLabel ? `${scenarioLabel} — Strategy Brief` : 'Final Strategy Brief'}
+              </p>
             </div>
           </div>
           <div className="text-foreground/90 text-sm md:text-base leading-relaxed prose prose-invert prose-sm max-w-none">
             <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.text}</ReactMarkdown>
           </div>
-          <button 
-          onClick={() => {
-            window.open(`http://localhost:8000/api/${sessionId}/download_pdf`, '_blank')
-          }}
-          className="mt-6 px-5 py-2.5 rounded-md bg-mod/20 text-mod text-xs font-semibold uppercase tracking-wider hover:bg-mod/30 transition-colors flex items-center gap-2"
-        >
-          📄 Download Strategy Brief
-          </button>
+          {!isComparison && (
+            <button
+              onClick={() => {
+                window.open(`http://localhost:8000/api/${sessionId}/download_pdf`, '_blank')
+              }}
+              className="mt-6 px-5 py-2.5 rounded-md bg-mod/20 text-mod text-xs font-semibold uppercase tracking-wider hover:bg-mod/30 transition-colors flex items-center gap-2"
+            >
+              📄 Download Strategy Brief
+            </button>
+          )}
         </div>
       </motion.div>
     );
