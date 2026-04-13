@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find /c/Users/HP/Downloads/airia-ai -type f -name *.py -not -path */node_modules/* -not -path */.git/*)",
+      "Bash(xargs grep:*)",
+      "Bash(grep -E \"\\\\.py$|\\\\.md$|\\\\.json$\")",
+      "Bash(python -c \"import ast; [ast.parse\\(open\\(f, encoding=''utf-8''\\).read\\(\\)\\) or print\\(f''{f}: OK''\\) for f in [''server.py'',''agents_creation.py'',''database.py'',''pdf_generator.py'']]\")"
+    ]
+  }
+}

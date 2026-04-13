@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -c \":*)",
+      "Bash(ls -la /c/Users/HP/Downloads/airia-ai/*.py)"
+    ]
+  }
+}
