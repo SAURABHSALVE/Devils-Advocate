@@ -1,0 +1,42 @@
+HOSPITAL AI TRIAGE — IMPLEMENTATION ANALYSIS
+
+Organization: Midwest Regional Health System
+Date: March 2026
+
+CURRENT ER OPERATIONS
+- Hospitals: 12 across Ohio, Indiana, Michigan
+- Annual ER Visits: 450,000
+- Average ER Wait Time: 3.2 hours
+- National Average Wait: 2.5 hours
+- Patient Satisfaction (ER): 3.1/5
+- Triage Method: Nurse-led Manchester Triage System (paper-based)
+- Nursing Vacancy Rate: 22%
+- Travel Nurse Spending: $12M/year
+- Malpractice Insurance: $8M/year
+- IT Budget: $15M/year
+
+AI TRIAGE VENDORS EVALUATED
+1. Viz.ai — FDA-cleared, focuses on stroke/PE detection, $2.5M/year for 12 sites
+2. Aidoc — Radiology AI, FDA-cleared for multiple conditions, $3.2M/year
+3. TriageLogic — Telephone triage AI, not FDA-cleared for ER use, $800K/year
+
+PROJECTED BENEFITS (AI TRIAGE)
+- Wait time reduction: 35-45% (to ~1.8 hours)
+- Nurse time saved: 12 minutes per triage encounter
+- Estimated annual savings: $4.2M (reduced overtime + travel nurses)
+- Improved ESI accuracy: from 72% to 89% (based on clinical trials)
+- Patient satisfaction improvement: projected +0.8 points
+
+REGULATORY & LEGAL CONCERNS
+- FDA classification: Software as Medical Device (SaMD)
+- HIPAA compliance required for all patient data
+- State medical practice acts: AI cannot "practice medicine"
+- Malpractice liability: unclear if AI vendor or hospital is liable
+- Recent case: AI misdiagnosis lawsuit in Texas (2025) — settled $4.2M
+- AMA position: AI should augment, not replace clinical judgment
+
+IMPLEMENTATION TIMELINE
+- Pilot (2 hospitals): 6 months
+- Full rollout: 12-18 months
+- Staff training: 80 hours per nurse
+- Total 3-year cost: $18-22M

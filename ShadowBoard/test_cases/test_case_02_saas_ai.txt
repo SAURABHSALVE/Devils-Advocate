@@ -1,0 +1,38 @@
+PROJECT MANAGEMENT SAAS — 3
+
+Company: Internal Document (Confidential)
+Date: March 2026
+
+CURRENT BUSINESS METRICS
+- Annual Recurring Revenue (ARR): $18M
+- Total Paying Customers: 2,400
+- Average Revenue Per Account: $7,500/year
+- Monthly Churn Rate: 3.2%
+- Net Revenue Retention: 105%
+- Gross Margin: 78%
+
+PRICING TIERS (CURRENT)
+- Basic: $12/user/month — task management, kanban boards, basic reporting
+- Pro: $24/user/month — advanced analytics, integrations, time tracking, API access
+
+PROPOSED AI TIER
+- Price: $49/user/month
+- Features: AI project timeline generation, risk prediction, resource optimization, smart scheduling, natural language task creation, automated status reports
+- Estimated AI inference cost per user: $3.20/month (GPT-4o-mini + fine-tuned models)
+- Development cost: $800K (6-month build)
+
+MARKET ANALYSIS
+- Monday.com AI features: included in Enterprise tier ($24/seat)
+- Asana Intelligence: included in Business tier ($30.49/seat)
+- ClickUp AI: add-on at $7/user/month
+- Notion AI: add-on at $10/member/month
+
+CUSTOMER SURVEY (n=340)
+- 62% expressed interest in AI features
+- 38% said they'd pay $20+ more per month for AI
+- Top requested: automated project timelines (78%), risk alerts (65%), smart resource allocation (54%)
+- Concern: data privacy for AI processing (47%)
+
+CANNIBALIZATION RISK
+- Estimated 15-20% of Pro users may upgrade to AI tier
+- Net revenue impact: positive if conversion rate exceeds 12%

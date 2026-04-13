@@ -1,0 +1,49 @@
+PHARMACEUTICAL — mRNA CANCER VACCINE PLATFORM INVESTMENT
+
+Company: Internal R&D Strategy Document
+Date: March 2026
+
+COMPANY PROFILE
+- Revenue: $6.2B
+- Market Cap: $28B
+- R&D Budget: $1.1B/year (17.7% of revenue)
+- Pipeline: 12 drugs in clinical trials
+  - Phase I: 5 drugs
+  - Phase II: 4 drugs
+  - Phase III: 3 drugs
+- Oncology Portfolio Revenue: $1.8B (29% of total)
+- Key Oncology Products: 2 approved checkpoint inhibitors
+- mRNA Capability: None (would need to build or license)
+
+PROPOSED INVESTMENT
+- Total Budget: $500M over 5 years
+- Year 1-2: Platform build / licensing ($150M)
+- Year 3-5: Clinical trials ($350M)
+- Target: Personalized neoantigen cancer vaccines
+- Initial Indications: Melanoma, NSCLC, colorectal cancer
+
+mRNA CANCER VACCINE LANDSCAPE
+- Moderna: mRNA-4157/V940 + Keytruda — Phase III for melanoma (2025)
+  - 44% reduction in recurrence/death vs Keytruda alone
+- BioNTech: BNT122 — Phase II for colorectal cancer
+- CureVac: CV8102 — Phase I for solid tumors
+- Market Opportunity: $50-80B by 2035 (personalized cancer vaccines)
+
+BUILD VS LICENSE OPTIONS
+- License BioNTech platform: $100-200M upfront + royalties (8-12%)
+- License Moderna platform: unlikely (competitive)
+- Build in-house: $200-300M, 2-3 years to operational
+- Acquire small mRNA biotech: $300-500M
+
+REGULATORY PATHWAY
+- FDA Breakthrough Therapy designation: likely for personalized vaccines
+- Accelerated approval possible based on surrogate endpoints
+- Manufacturing challenge: each vaccine is patient-specific
+- GMP compliance for individualized therapy: complex
+
+RISK FACTORS
+- First-mover advantage: Moderna is 2-3 years ahead
+- Manufacturing complexity: $50-80K per patient treatment
+- Reimbursement uncertainty: payers may resist high-cost individualized therapy
+- Technical risk: 30-40% probability of Phase III success
+- Patent landscape: heavily contested

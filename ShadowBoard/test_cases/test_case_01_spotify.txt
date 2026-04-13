@@ -1,0 +1,38 @@
+SPOTIFY — PODCAST ACQUISITION ANALYSIS
+
+Company: Spotify Technology S.A.
+Ticker: SPOT (NYSE)
+Report Date: Q4 2024
+
+FINANCIAL SUMMARY
+- Total Revenue: $15.7 Billion (FY 2024)
+- Gross Margin: 29.2%
+- Free Cash Flow: $1.4B
+- Cash & Equivalents: $4.2B
+- Total Debt: $1.5B
+
+PODCAST DIVISION METRICS
+- Podcast Monthly Active Users: 180M (36% of total MAU)
+- Podcast Ad Revenue: $1.8B (11.5% of total revenue)
+- YoY Podcast Ad Growth: 7-8%
+- Exclusive Podcast Spend (2019-2024): ~$1B total
+- Previous Acquisitions: Gimlet Media ($230M), Anchor ($140M), Megaphone ($235M), Podsights, Chartable
+
+COMPETITIVE LANDSCAPE
+- Apple Podcasts: 28% market share (declining)
+- YouTube Podcasts: 25% market share (fastest growing)
+- Amazon Music/Audible: 12% market share
+- Spotify: 30% market share (stable)
+- iHeartRadio: 5% market share
+
+PODCAST ANALYTICS MARKET
+- Total addressable market: $2.8B by 2027
+- Key players: Podtrac, Chartable (acquired by Spotify), Edison Research, Triton Digital
+- Gap: Real-time cross-platform attribution analytics
+- Estimated acquisition target valuation: $150M - $400M
+
+RISKS
+- Podcast ROI has been questioned by investors since 2022
+- Joe Rogan deal ($250M) showed mixed retention impact
+- Shift from exclusives to open ecosystem in 2023
+- YouTube emerging as dominant video podcast platform

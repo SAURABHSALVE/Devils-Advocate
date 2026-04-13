@@ -1,0 +1,47 @@
+FOOD DELIVERY — GHOST KITCHEN ACQUISITION ANALYSIS
+
+Company: Internal M&A Document
+Date: March 2026
+
+ACQUIRER PROFILE
+- Platform: Food delivery marketplace
+- Operating Cities: 15 US metros
+- GMV: $1.8B annually
+- Take Rate: 28%
+- Net Revenue: $504M
+- Active Restaurants: 45,000
+- Monthly Active Users: 3.2M
+- Delivery Fleet: 60,000 gig workers
+- Gross Margin: 12%
+- Net Loss: -$180M/year
+- Cash Position: $650M
+- Last Funding: Series E ($300M, 2024)
+
+ACQUISITION TARGET: CLOUDKITCHEN CO.
+- Ghost Kitchen Locations: 120 across 8 cities
+- Revenue: $95M/year
+- Net Margin: 8% (profitable)
+- Kitchen Utilization: 72%
+- Average Revenue per Kitchen: $792K/year
+- Employee Count: 1,800 (mostly kitchen staff)
+- Lease Commitments: $28M remaining
+- Asking Price: $400M (4.2x revenue)
+
+STRATEGIC RATIONALE
+- Vertical integration: own supply side
+- Higher margins: ghost kitchen food margins 45% vs marketplace 12%
+- Data advantage: direct consumer behavior data
+- Exclusive brands: create proprietary restaurant brands
+- Delivery optimization: kitchens positioned for 15-min delivery
+
+RISKS
+- Restaurant partner backlash: 45,000 partners may view as competition
+- Operational complexity: platform company vs food production
+- Real estate risk: 120 leases in volatile market
+- Food safety liability: direct operation = direct liability
+- Integration cost: estimated $25-40M over 18 months
+
+COMPARABLE TRANSACTIONS
+- DoorDash acquired Bbot (restaurant tech): $300M
+- Uber acquired Drizly (alcohol delivery): $1.1B
+- CloudKitchens (Travis Kalanick): valued at $5B (2019), now $1.5B

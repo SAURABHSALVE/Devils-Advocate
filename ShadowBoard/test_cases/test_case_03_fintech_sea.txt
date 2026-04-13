@@ -1,0 +1,45 @@
+FINTECH EXPANSION — SOUTHEAST ASIA MARKET ANALYSIS
+
+Company: Internal Strategy Document
+Date: March 2026
+
+CURRENT OPERATIONS (INDIA)
+- Gross Merchandise Value (GMV): $2.1B annually
+- Active Users: 8M
+- Net Revenue: $45M
+- Monthly Burn Rate: $3.5M
+- Cash Runway: 18 months
+- Series B: $60M raised (2024)
+- India Digital Payments Market Share: 4%
+
+TARGET MARKETS
+
+SINGAPORE
+- Population: 5.9M
+- Digital payment penetration: 89%
+- Regulatory body: MAS (Monetary Authority of Singapore)
+- License required: Major Payment Institution License (12-18 months)
+- Key competitors: GrabPay, PayNow, DBS PayLah
+- Advantage: Strong regulatory framework, gateway to ASEAN
+
+INDONESIA
+- Population: 278M
+- Digital payment penetration: 42% (fastest growing)
+- Regulatory body: Bank Indonesia (BI)
+- License required: E-money license (6-12 months)
+- Key competitors: GoPay, OVO, ShopeePay, DANA
+- Advantage: Massive underbanked population, 65M MSMEs
+
+PHILIPPINES
+- Population: 115M
+- Digital payment penetration: 36%
+- Regulatory body: Bangko Sentral ng Pilipinas (BSP)
+- License required: Electronic Money Issuer license
+- Key competitors: GCash, Maya (PayMaya)
+- Advantage: English-speaking, remittance-heavy economy
+
+ESTIMATED EXPANSION COSTS
+- Singapore entry: $5-8M first year
+- Indonesia entry: $15-25M first year
+- Philippines entry: $8-12M first year
+- Total 3-market entry: $28-45M over 18 months

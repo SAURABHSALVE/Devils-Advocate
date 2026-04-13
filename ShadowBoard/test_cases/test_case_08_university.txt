@@ -1,0 +1,43 @@
+UNIVERSITY — ONLINE AI/DS MASTER'S PROGRAM FEASIBILITY
+
+Institution: Internal Academic Planning Document
+Date: March 2026
+
+INSTITUTION PROFILE
+- National Ranking: #85 (US News)
+- Total Enrollment: 22,000 students
+- CS Department Faculty: 45 professors
+- Current On-Campus CS Master's Tuition: $48,000 (2-year program)
+- Current CS Master's Enrollment: 280 students/year
+- Existing Online Programs: 5 (MBA, Education, Nursing, Public Health, Library Science)
+- Online Infrastructure: Canvas LMS, Zoom, ProctorU
+- Endowment: $1.8B
+
+PROPOSED PROGRAM
+- Degree: MS in AI & Data Science (fully online)
+- Tuition: $15,000 total (10 courses)
+- Per-Course Cost to Student: $1,500
+- Duration: 1.5-2 years (part-time)
+- Target Enrollment: 500 students/year by Year 3
+- Admission Requirements: BS in STEM, GRE optional
+
+COMPETITIVE LANDSCAPE
+- Georgia Tech OMSCS: $7,000 total, 12,000+ students, ranked #8
+- UT Austin MSDS: $10,000 total, ranked #30
+- UC Berkeley MIDS: $31,000 total, highly selective
+- Illinois MCS: $21,000, ranked #5 in CS
+- Our differentiation: Applied AI focus, capstone with industry partners
+
+FINANCIAL PROJECTIONS
+- Development Cost: $2.5M (curriculum, video production, platform)
+- Annual Operating Cost: $1.2M (TAs, infrastructure, admin)
+- Year 1 Revenue (200 students): $3M
+- Year 2 Revenue (350 students): $5.25M
+- Year 3 Revenue (500 students): $7.5M
+- Break-even: Month 14
+
+CANNIBALIZATION CONCERN
+- On-campus CS Master's: $48K x 280 students = $13.4M/year
+- Risk: 10-15% of applicants may choose online instead
+- Revenue impact: -$1.3M to -$2M/year from on-campus
+- Net impact: strongly positive (+$4-5M/year by Year 3)

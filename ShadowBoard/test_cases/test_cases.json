@@ -1,0 +1,72 @@
+[
+  {
+    "id": 1,
+    "question": "Should Spotify acquire a podcast analytics company to strengthen its position in the podcast market?",
+    "context": "We are Spotify. Revenue: $15.7B (2024). Cash reserves: $4.2B. 500M+ monthly active users. 220M premium subscribers. Podcast market share: ~30%. Major competitors: Apple Podcasts, YouTube, Amazon Music. We have previously acquired Gimlet Media, Anchor, and Megaphone. Current podcast ad revenue growing 7-8% YoY.",
+    "followup": "What happens to our core product if this acquisition fails within 2 years?",
+    "pdf_file": "test_case_01_spotify.txt"
+  },
+  {
+    "id": 2,
+    "question": "Should we launch a premium AI-powered tier for our project management SaaS at $49/user/month?",
+    "context": "We are a mid-stage B2B SaaS company. ARR: $18M. 2,400 paying customers. Current pricing: $12/user/month (Basic), $24/user/month (Pro). Gross margin: 78%. Monthly churn: 3.2%. Engineering team: 35 people. We've built an internal AI copilot prototype that auto-generates project timelines and risk assessments.",
+    "followup": "What's the risk of cannibalizing our Pro tier?",
+    "pdf_file": "test_case_02_saas_ai.txt"
+  },
+  {
+    "id": 3,
+    "question": "Should our fintech startup expand from India to Southeast Asia (Singapore, Indonesia, Philippines)?",
+    "context": "We are a digital payments fintech. GMV: $2.1B annually. 8M active users in India. Net revenue: $45M. Burn rate: $3.5M/month. Runway: 18 months. Series B funded ($60M raised). Core product: QR-based merchant payments + micro-lending. India market share: 4%. Competitors in SEA: GrabPay, GCash, OVO, ShopeePay.",
+    "followup": "Should we prioritize Singapore for regulatory credibility or Indonesia for scale?",
+    "pdf_file": "test_case_03_fintech_sea.txt"
+  },
+  {
+    "id": 4,
+    "question": "Should our electric vehicle company build our own battery gigafactory or continue sourcing from CATL and LG?",
+    "context": "We are a mid-size EV manufacturer. Annual production: 120,000 vehicles. Revenue: $4.8B. Current battery cost: $98/kWh (sourced from CATL). Battery makes up 35% of vehicle cost. We have $1.2B in available capital. Lead time for gigafactory: 3-4 years. Competitors Tesla, BYD have in-house battery production.",
+    "followup": "What if CATL raises prices by 15% before our factory is operational?",
+    "pdf_file": "test_case_04_ev_battery.txt"
+  },
+  {
+    "id": 5,
+    "question": "Should our hospital chain implement a fully AI-powered diagnostic triage system in our emergency departments?",
+    "context": "We operate 12 hospitals across the US Midwest. Annual ER visits: 450,000. Average ER wait time: 3.2 hours. Current triage is nurse-led with paper scoring. Staff shortage: 22% nursing vacancies. Malpractice insurance: $8M/year. IT budget: $15M/year. We've been approached by 3 AI health-tech vendors.",
+    "followup": "What are the legal implications if the AI misdiagnoses a patient in the ER?",
+    "pdf_file": "test_case_05_hospital_ai.txt"
+  },
+  {
+    "id": 6,
+    "question": "Should our fashion retail brand shut down all physical stores and go 100% direct-to-consumer online?",
+    "context": "We are a mid-range fashion brand. Revenue: $320M. 85 physical stores. E-commerce: 38% of revenue (growing 22% YoY). Store revenue declining 8% YoY. Average store lease: $180K/year with 3-5 year terms. 1,200 retail employees. Brand recognition is strongly tied to flagship store experiences. Return rate online: 28% vs 8% in-store.",
+    "followup": "How do we handle the 1,200 employees and lease obligations?",
+    "pdf_file": "test_case_06_retail_dtc.txt"
+  },
+  {
+    "id": 7,
+    "question": "Should our food delivery platform acquire a ghost kitchen network to vertically integrate?",
+    "context": "We are a food delivery platform operating in 15 US cities. GMV: $1.8B. Take rate: 28%. Active restaurants: 45,000. Monthly active users: 3.2M. Delivery fleet: 60,000 gig workers. Gross margin: 12%. Net loss: $180M/year. Ghost kitchen network target has 120 locations, $95M revenue, and is profitable at 8% net margin. Asking price: $400M.",
+    "followup": "Does vertical integration conflict with our existing restaurant partners?",
+    "pdf_file": "test_case_07_food_delivery.txt"
+  },
+  {
+    "id": 8,
+    "question": "Should our university launch a fully online AI & Data Science master's degree program at $15,000 total tuition?",
+    "context": "We are a mid-tier US university (ranked #85 nationally). Current enrollment: 22,000 students. On-campus CS master's tuition: $48,000. Online infrastructure exists for 5 programs. Faculty: 45 CS/DS professors. Competitors: Georgia Tech OMSCS ($7K), UT Austin MSDS ($10K). Our brand is strong regionally but not nationally recognized in tech.",
+    "followup": "Will this devalue our on-campus degree and upset current students paying $48K?",
+    "pdf_file": "test_case_08_university.txt"
+  },
+  {
+    "id": 9,
+    "question": "Should our pharmaceutical company invest $500M in developing an mRNA-based cancer vaccine platform?",
+    "context": "We are a mid-cap pharma company. Revenue: $6.2B. R&D budget: $1.1B/year. Pipeline: 12 drugs in clinical trials (3 in Phase III). Current oncology portfolio: $1.8B revenue. No mRNA capabilities in-house. Would need to license BioNTech/Moderna tech or build from scratch. FDA pathway unclear for personalized cancer vaccines. Timeline to Phase III: 5-7 years.",
+    "followup": "What happens if Moderna or BioNTech gets there first with a similar product?",
+    "pdf_file": "test_case_09_pharma_mrna.txt"
+  },
+  {
+    "id": 10,
+    "question": "Should our cybersecurity company pivot from selling software licenses to a fully managed security-as-a-service (SECaaS) model?",
+    "context": "We are an enterprise cybersecurity vendor. ARR: $280M. 1,800 enterprise customers. Current model: perpetual licenses + 20% annual maintenance. Average deal size: $155K. Sales cycle: 6-9 months. Customer retention: 92%. 60% of revenue comes from Fortune 500. Competitors CrowdStrike, Palo Alto have successfully transitioned to SaaS. Our stock price has been flat for 2 years.",
+    "followup": "How do we manage the revenue dip during the transition without alarming investors?",
+    "pdf_file": "test_case_10_cybersec_saas.txt"
+  }
+]

@@ -1,0 +1,44 @@
+FASHION RETAIL — STORE CLOSURE & DTC TRANSITION ANALYSIS
+
+Company: Internal Strategy Document
+Date: March 2026
+
+BUSINESS OVERVIEW
+- Total Revenue: $320M
+- Physical Stores: 85 locations (US)
+- E-commerce Revenue: $121.6M (38% of total, growing 22% YoY)
+- Store Revenue: $198.4M (62% of total, declining 8% YoY)
+- Gross Margin: 58% (online) vs 52% (in-store)
+- Net Margin: 4.2%
+
+STORE ECONOMICS
+- Average Store Revenue: $2.3M/year
+- Average Store Lease: $180K/year
+- Average remaining lease term: 3.2 years
+- Total lease obligations: $46M remaining
+- Early termination penalties: est. $12-18M
+- Retail Employees: 1,200 (avg salary $38K)
+- Store CAPEX maintenance: $4.5M/year
+
+E-COMMERCE METRICS
+- Monthly Unique Visitors: 2.8M
+- Conversion Rate: 3.1%
+- Average Order Value: $89
+- Return Rate Online: 28%
+- Return Rate In-Store: 8%
+- Customer Acquisition Cost (Online): $42
+- Customer Lifetime Value (Online): $320
+- Fulfillment Cost per Order: $8.50
+
+BRAND IMPACT ASSESSMENT
+- Brand awareness survey: 72% associate brand with "in-store experience"
+- Instagram followers: 1.8M
+- Flagship stores (5 locations) drive 40% of social media mentions
+- Pop-up events generate 3x engagement vs digital campaigns
+
+TRANSITION COST ESTIMATE
+- Lease buyouts: $12-18M
+- Severance packages: $8-10M (1,200 employees)
+- Warehouse/fulfillment expansion: $15M
+- Digital marketing ramp: $12M/year increase
+- Total transition cost: $47-55M over 2 years

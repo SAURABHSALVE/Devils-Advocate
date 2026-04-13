@@ -1,0 +1,51 @@
+CYBERSECURITY — LICENSE TO SAAS TRANSITION ANALYSIS
+
+Company: Internal Strategy Document
+Date: March 2026
+
+COMPANY PROFILE
+- Annual Recurring Revenue (ARR): $280M
+- Total Enterprise Customers: 1,800
+- Fortune 500 Customers: 1,080 (60% of revenue)
+- Average Deal Size: $155K
+- Sales Cycle: 6-9 months
+- Customer Retention Rate: 92%
+- Current Model: Perpetual licenses + 20% annual maintenance
+- Gross Margin: 82%
+- Net Margin: 18%
+- Stock Price Trend: Flat for 24 months
+- Market Cap: $3.8B
+- Employee Count: 1,400
+
+PROPOSED TRANSITION: SECaaS MODEL
+- New Pricing: $28-65/endpoint/month (tiered)
+- Includes: 24/7 SOC monitoring, incident response, threat hunting
+- Required Investment: $45M over 2 years
+  - SOC build-out: $18M (3 global centers)
+  - Cloud infrastructure: $12M
+  - Hiring: 200 security analysts ($15M/year)
+
+REVENUE TRANSITION IMPACT
+- Year 1: Revenue decline 15-22% (license to subscription conversion)
+- Year 2: Revenue recovery to ~95% of baseline
+- Year 3: Revenue exceeds baseline by 10-15%
+- Year 5: Projected ARR $420M (50% growth from current)
+- Lifetime Value increase: 2.8x vs perpetual license
+
+COMPETITOR BENCHMARKS
+- CrowdStrike: Transitioned 2015-2018, now $3.4B ARR, 95% recurring
+- Palo Alto Networks: Transitioned 2019-2022, NGS ARR $3.8B
+- SentinelOne: Born-cloud, $600M ARR
+- Average SaaS cybersecurity multiple: 12-18x ARR vs 5-8x for license
+
+VALUATION IMPACT
+- Current: $3.8B (13.5x ARR, license model multiple)
+- Post-transition: $6.3-7.5B (15-18x ARR, SaaS multiple)
+- Potential upside: 65-97% stock price appreciation over 3 years
+
+RISKS
+- Revenue dip may trigger analyst downgrades
+- Fortune 500 procurement: some prefer perpetual licenses
+- SOC operational risk: 24/7 monitoring = higher liability
+- Customer churn during transition: estimated 5-8% one-time
+- Execution risk: company has never operated a managed service
