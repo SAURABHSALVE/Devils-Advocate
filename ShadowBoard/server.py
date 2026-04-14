@@ -15,7 +15,7 @@ import docx
 import io
 from fastapi import UploadFile, File
 from agents_creation import set_board_expertise
-from database import signup_user, login_user, save_session, get_user_sessions, save_comparison
+from database import signup_user, login_user, save_session, get_user_sessions, save_comparison, save_review, get_reviews, init_db
 from memory import get_relevant_memories, save_debate_memory
 
 
@@ -35,6 +35,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+init_db()
 
 def sse_event(event_type, data):
     return f"event: {event_type}\ndata: {json.dumps(data)}\n\n"
@@ -63,6 +65,12 @@ class ComparisonRequest(BaseModel):
     option_b: str
     context: str = ""
     board_type: str = "tech"
+    user_id: str = ""
+
+class ReviewRequest(BaseModel):
+    reviewer_name: str
+    review_text: str
+    rating: int = 0
     user_id: str = ""
 
 sessions_info = {}
@@ -145,6 +153,18 @@ def login(request: LoginRequest):
     if user:
         return {"status": "success", "user": user}
     return {"status": "error", "message": "Invalid email or password"}
+
+@app.get("/api/reviews")
+def list_reviews():
+    return {"reviews": get_reviews()}
+
+@app.post("/api/reviews")
+def create_review(request: ReviewRequest):
+    review_id = str(uuid.uuid4())
+    save_review(review_id, request.reviewer_name, request.review_text, request.user_id or None, request.rating)
+    reviews = get_reviews()
+    created = next((review for review in reviews if review["review_id"] == review_id), None)
+    return {"status": "success", "review": created or {"review_id": review_id, "reviewer_name": request.reviewer_name, "review_text": request.review_text}}
 
 @app.get("/api/sessions/history/{user_id}")
 def get_history(user_id: str):

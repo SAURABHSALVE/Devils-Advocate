@@ -293,13 +293,15 @@ const Index = () => {
 
   const loadReviews = async () => {
     try {
-      const res = await fetch('/reviews.json');
+      const res = await fetch(`${API_BASE}/api/reviews`);
       const data = await res.json();
       const localReviews = JSON.parse(window.localStorage.getItem('shadowboard_reviews') || '[]');
-      setReviews([...(Array.isArray(localReviews) ? localReviews : []), ...(Array.isArray(data) ? data : [])]);
+      const serverReviews = Array.isArray(data.reviews) ? data.reviews : [];
+      setReviews([...(Array.isArray(localReviews) ? localReviews : []), ...serverReviews]);
     } catch (err) {
       console.error('Failed to load reviews:', err);
-      setReviews([]);
+      const localReviews = JSON.parse(window.localStorage.getItem('shadowboard_reviews') || '[]');
+      setReviews(Array.isArray(localReviews) ? localReviews : []);
     }
   };
 
@@ -307,27 +309,59 @@ const Index = () => {
     loadReviews();
   }, []);
 
-  const submitReview = () => {
+  const submitReview = async () => {
     if (!reviewText.trim()) {
       setReviewError('Please enter a review message.');
       return;
     }
 
-    const newReview = {
-      review_id: `local-${Date.now()}`,
+    const reviewPayload = {
       reviewer_name: user?.name || reviewName || 'Anonymous',
       review_text: reviewText.trim(),
-      created_at: new Date().toISOString(),
+      rating: 0,
+      user_id: user?.user_id || '',
     };
 
-    const localReviews = JSON.parse(window.localStorage.getItem('shadowboard_reviews') || '[]');
-    const updatedLocalReviews = [newReview, ...(Array.isArray(localReviews) ? localReviews : [])];
-    window.localStorage.setItem('shadowboard_reviews', JSON.stringify(updatedLocalReviews));
-    setReviews((prev) => [newReview, ...prev]);
-    setReviewText('');
-    setReviewError('');
-    setReviewSuccess('Review added locally.');
-    setTimeout(() => setReviewSuccess(''), 4000);
+    try {
+      const res = await fetch(`${API_BASE}/api/reviews`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(reviewPayload),
+      });
+
+      if (!res.ok) {
+        throw new Error('Failed to save review to backend.');
+      }
+
+      const data = await res.json();
+      const createdReview = data.review || {
+        review_id: `local-${Date.now()}`,
+        ...reviewPayload,
+        created_at: new Date().toISOString(),
+      };
+
+      setReviews((prev) => [createdReview, ...prev]);
+      setReviewText('');
+      setReviewError('');
+      setReviewSuccess('Review saved successfully.');
+    } catch (err) {
+      console.warn('Review save failed, storing locally:', err);
+      const newReview = {
+        review_id: `local-${Date.now()}`,
+        reviewer_name: reviewPayload.reviewer_name,
+        review_text: reviewPayload.review_text,
+        created_at: new Date().toISOString(),
+      };
+      const localReviews = JSON.parse(window.localStorage.getItem('shadowboard_reviews') || '[]');
+      const updatedLocalReviews = [newReview, ...(Array.isArray(localReviews) ? localReviews : [])];
+      window.localStorage.setItem('shadowboard_reviews', JSON.stringify(updatedLocalReviews));
+      setReviews((prev) => [newReview, ...prev]);
+      setReviewText('');
+      setReviewError('');
+      setReviewSuccess('Review saved locally.');
+    } finally {
+      setTimeout(() => setReviewSuccess(''), 4000);
+    }
   };
   // Scenario Comparison: init SSE (parallel execution)
   const initComparisonSSE = useCallback((cid: string) => {

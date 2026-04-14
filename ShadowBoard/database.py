@@ -53,6 +53,17 @@ def init_db():
             FOREIGN KEY (user_id) REFERENCES users(user_id)
         )
     """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS reviews (
+            review_id TEXT PRIMARY KEY,
+            user_id TEXT,
+            reviewer_name TEXT NOT NULL,
+            rating INTEGER DEFAULT 0,
+            review_text TEXT NOT NULL,
+            created_at TEXT DEFAULT (datetime('now')),
+            FOREIGN KEY (user_id) REFERENCES users(user_id)
+        )
+    """)
     conn.commit()
     conn.close()
 
