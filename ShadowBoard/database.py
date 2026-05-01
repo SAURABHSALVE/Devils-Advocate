@@ -14,7 +14,18 @@ def get_db():
     # Enable WAL mode for better concurrency
     conn.execute("PRAGMA journal_mode=WAL")
     conn.execute("PRAGMA busy_timeout=30000")
+    conn.execute("PRAGMA synchronous=NORMAL")
     return conn
+
+
+def close_db(conn):
+    """Safely close database connection."""
+    try:
+        if conn:
+            conn.rollback()  # Rollback any uncommitted changes
+            conn.close()
+    except:
+        pass
 
 
 def init_db():
@@ -76,36 +87,55 @@ def _hash_password(password: str) -> str:
 
 
 def signup_user(email, password, name):
+    conn = None
     try:
         conn = get_db()
+        
+        # Check if email already exists (before insert)
+        existing = conn.execute(
+            "SELECT email FROM users WHERE email = ?", (email,)
+        ).fetchone()
+        if existing:
+            close_db(conn)
+            return None  # Email already exists
+        
         user_id = str(uuid.uuid4())
         conn.execute(
             "INSERT INTO users (user_id, email, password_hash, name) VALUES (?, ?, ?, ?)",
             (user_id, email, _hash_password(password), name)
         )
         conn.commit()
-        conn.close()
+        close_db(conn)
         return {"user_id": user_id, "email": email, "name": name}
     except sqlite3.IntegrityError:
+        if conn:
+            conn.rollback()
+            close_db(conn)
         return None
     except Exception as e:
         print(f"Signup error: {e}")
+        if conn:
+            conn.rollback()
+            close_db(conn)
         return None
 
 
 def login_user(email, password):
+    conn = None
     try:
         conn = get_db()
         row = conn.execute(
             "SELECT user_id, email, name FROM users WHERE email = ? AND password_hash = ?",
             (email, _hash_password(password))
         ).fetchone()
-        conn.close()
+        close_db(conn)
         if row:
             return {"user_id": row["user_id"], "email": row["email"], "name": row["name"]}
         return None
     except Exception as e:
         print(f"Login error: {e}")
+        if conn:
+            close_db(conn)
         return None
 
 

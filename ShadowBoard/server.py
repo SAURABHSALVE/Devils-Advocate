@@ -2,6 +2,7 @@ from fastapi import FastAPI
 app = FastAPI()
 from pydantic import BaseModel
 import uuid
+import re
 from pdf_generator import generate_strategy_brief_pdf, generate_comparison_pdf
 from fastapi.responses import FileResponse
 import json
@@ -140,8 +141,18 @@ async def upload_file(session_id: str, file: UploadFile = File(...)):
     sessions_info[session_id]["file_context"] = text
     return {"status": "uploaded", "characters": len(text)}
 
+def validate_email(email: str) -> bool:
+    """Validate email format."""
+    pattern = r'^[\w\.-]+@[\w\.-]+\.\w+$'
+    return bool(re.match(pattern, email))
+
+
 @app.post("/api/auth/signup")
 def signup(request: SignupRequest):
+    # Validate email format
+    if not validate_email(request.email):
+        return {"status": "error", "message": "Invalid email format"}
+    
     user = signup_user(request.email, request.password, request.name)
     if user:
         return {"status": "success", "user": user}
