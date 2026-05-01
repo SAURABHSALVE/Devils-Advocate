@@ -295,11 +295,21 @@ const Index = () => {
     try {
       const res = await fetch(`${API_BASE}/api/reviews`);
       const data = await res.json();
+      // Get local reviews for current user
       const localReviews = JSON.parse(window.localStorage.getItem('shadowboard_reviews') || '[]');
       const serverReviews = Array.isArray(data.reviews) ? data.reviews : [];
-      setReviews([...(Array.isArray(localReviews) ? localReviews : []), ...serverReviews]);
+      
+      // Merge: server reviews + local reviews (deduplicated by review_id)
+      const allReviews = [...serverReviews];
+      localReviews.forEach((localRev: any) => {
+        if (!allReviews.some(r => r.review_id === localRev.review_id)) {
+          allReviews.push(localRev);
+        }
+      });
+      setReviews(allReviews);
     } catch (err) {
       console.error('Failed to load reviews:', err);
+      // Fallback to local only
       const localReviews = JSON.parse(window.localStorage.getItem('shadowboard_reviews') || '[]');
       setReviews(Array.isArray(localReviews) ? localReviews : []);
     }
@@ -308,6 +318,11 @@ const Index = () => {
   useEffect(() => {
     loadReviews();
   }, []);
+
+  // Reload reviews when user logs in/out
+  useEffect(() => {
+    loadReviews();
+  }, [user]);
 
   const submitReview = async () => {
     if (!reviewText.trim()) {

@@ -9,8 +9,11 @@ DB_PATH = os.path.join(os.path.dirname(__file__), "shadowboard.db")
 
 
 def get_db():
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(DB_PATH, timeout=30)
     conn.row_factory = sqlite3.Row
+    # Enable WAL mode for better concurrency
+    conn.execute("PRAGMA journal_mode=WAL")
+    conn.execute("PRAGMA busy_timeout=30000")
     return conn
 
 
@@ -171,16 +174,28 @@ def save_comparison(comparison_id, user_id, option_a, option_b, context,
 
 
 def save_review(review_id, reviewer_name, review_text, user_id=None, rating=0):
-    try:
-        conn = get_db()
-        conn.execute(
-            "INSERT INTO reviews (review_id, user_id, reviewer_name, rating, review_text) VALUES (?, ?, ?, ?, ?)",
-            (review_id, user_id, reviewer_name, rating, review_text[:2000])
-        )
-        conn.commit()
-        conn.close()
-    except Exception as e:
-        print(f"Save review error: {e}")
+    max_retries = 5
+    retry_delay = 0.5
+    for attempt in range(max_retries):
+        try:
+            conn = get_db()
+            conn.execute(
+                "INSERT INTO reviews (review_id, user_id, reviewer_name, rating, review_text) VALUES (?, ?, ?, ?, ?)",
+                (review_id, user_id, reviewer_name, rating, review_text[:2000])
+            )
+            conn.commit()
+            conn.close()
+            return  # Success
+        except sqlite3.OperationalError as e:
+            if "database is locked" in str(e) and attempt < max_retries - 1:
+                import time
+                time.sleep(retry_delay * (attempt + 1))  # Exponential backoff
+                continue
+            print(f"Save review error: {e}")
+            break
+        except Exception as e:
+            print(f"Save review error: {e}")
+            break
 
 
 def get_reviews():
