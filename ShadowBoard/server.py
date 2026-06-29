@@ -18,7 +18,7 @@ from fastapi import UploadFile, File
 from agents_creation import set_board_expertise
 from supabase_db import (
     save_session, get_user_sessions, save_comparison,
-    save_review, get_reviews, get_review_stats, get_profile
+    save_review, get_reviews, get_review_stats, delete_review, update_review, get_profile
 )
 from auth_middleware import get_current_user, get_optional_user
 from memory import get_relevant_memories, save_debate_memory
@@ -386,6 +386,38 @@ def create_review(
         "helpful_count": 0,
         "created_at": __import__("datetime").datetime.utcnow().isoformat() + "Z",
     }}
+
+
+class ReviewUpdateRequest(BaseModel):
+    review_text: str
+    rating: int = 5
+
+
+@app.delete("/api/reviews/{review_id}")
+def remove_review(review_id: str, current_user: dict = Depends(get_current_user)):
+    deleted = delete_review(review_id, current_user["user_id"])
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Review not found or not yours")
+    return {"status": "deleted"}
+
+
+@app.patch("/api/reviews/{review_id}")
+def edit_review(
+    review_id: str,
+    request: ReviewUpdateRequest,
+    current_user: dict = Depends(get_current_user),
+):
+    if not request.review_text.strip():
+        raise HTTPException(status_code=400, detail="Review text cannot be empty")
+    updated = update_review(
+        review_id,
+        current_user["user_id"],
+        request.review_text.strip(),
+        max(1, min(5, request.rating)),
+    )
+    if not updated:
+        raise HTTPException(status_code=404, detail="Review not found or not yours")
+    return {"status": "updated", "review": updated}
 
 
 # ── Scenario comparison ───────────────────────────────────────────────────────

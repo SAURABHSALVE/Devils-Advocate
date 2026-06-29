@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Star, ChevronDown, Loader2, CheckCircle2, AlertCircle, ThumbsUp } from 'lucide-react';
+import { Star, ChevronDown, Loader2, CheckCircle2, AlertCircle, ThumbsUp, Pencil, Trash2, X, Check } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 
 const API_BASE = (import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000').replace(/\/$/, '');
@@ -138,6 +138,12 @@ export default function ReviewsSection({ getAccessToken, sectionRef }: ReviewsSe
   const [formSuccess, setFormSuccess] = useState('');
 
   const [helpfulSet, setHelpfulSet] = useState<Set<string>>(new Set());
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editText, setEditText] = useState('');
+  const [editRating, setEditRating] = useState(5);
+  const [editSaving, setEditSaving] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
   const userName = user?.user_metadata?.name || user?.email?.split('@')[0] || 'You';
 
@@ -214,6 +220,57 @@ export default function ReviewsSection({ getAccessToken, sectionRef }: ReviewsSe
     }
   };
 
+  const startEdit = (review: Review) => {
+    setEditingId(review.review_id);
+    setEditText(review.review_text);
+    setEditRating(review.rating);
+    setConfirmDeleteId(null);
+  };
+
+  const cancelEdit = () => {
+    setEditingId(null);
+    setEditText('');
+    setEditRating(5);
+  };
+
+  const saveEdit = async (reviewId: string) => {
+    if (!editText.trim()) return;
+    setEditSaving(true);
+    try {
+      const res = await authFetch(`${API_BASE}/api/reviews/${reviewId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ review_text: editText.trim(), rating: editRating }),
+      });
+      if (!res.ok) throw new Error();
+      const data = await res.json();
+      setReviews(prev => prev.map(r =>
+        r.review_id === reviewId ? { ...r, review_text: editText.trim(), rating: editRating, ...data.review } : r
+      ));
+      cancelEdit();
+    } catch {
+      // silent — keep edit open
+    } finally {
+      setEditSaving(false);
+    }
+  };
+
+  const handleDelete = async (reviewId: string) => {
+    setDeletingId(reviewId);
+    try {
+      const res = await authFetch(`${API_BASE}/api/reviews/${reviewId}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error();
+      setReviews(prev => prev.filter(r => r.review_id !== reviewId));
+      setTotal(t => t - 1);
+      setStats(s => s ? { ...s, total: s.total - 1 } : null);
+      setConfirmDeleteId(null);
+    } catch {
+      // silent
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
   const handleHelpful = async (reviewId: string) => {
     if (helpfulSet.has(reviewId)) return;
     setHelpfulSet(prev => new Set([...prev, reviewId]));
@@ -284,6 +341,7 @@ export default function ReviewsSection({ getAccessToken, sectionRef }: ReviewsSe
                     transition={{ duration: 0.28, delay: i < PAGE_SIZE ? i * 0.04 : 0 }}
                     className="rounded-2xl border border-border bg-slate-950/90 p-5 shadow-lg group"
                   >
+                    {/* Header row */}
                     <div className="flex items-start gap-3 mb-3">
                       <Avatar name={review.reviewer_name || 'A'} />
                       <div className="flex-1 min-w-0">
@@ -291,35 +349,127 @@ export default function ReviewsSection({ getAccessToken, sectionRef }: ReviewsSe
                           <span className="text-sm font-semibold text-foreground truncate">
                             {review.reviewer_name || 'Anonymous'}
                           </span>
-                          <span className="text-[10px] text-muted-foreground/60 shrink-0">
-                            {timeAgo(review.created_at)}
-                          </span>
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <span className="text-[10px] text-muted-foreground/60">
+                              {timeAgo(review.created_at)}
+                            </span>
+                            {/* Owner controls */}
+                            {user?.id === review.user_id && editingId !== review.review_id && (
+                              <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <button
+                                  onClick={() => startEdit(review)}
+                                  className="p-1 rounded-md text-muted-foreground/50 hover:text-primary hover:bg-primary/10 transition-all"
+                                  title="Edit review"
+                                >
+                                  <Pencil size={12} />
+                                </button>
+                                <button
+                                  onClick={() => setConfirmDeleteId(review.review_id)}
+                                  className="p-1 rounded-md text-muted-foreground/50 hover:text-destructive hover:bg-destructive/10 transition-all"
+                                  title="Delete review"
+                                >
+                                  <Trash2 size={12} />
+                                </button>
+                              </div>
+                            )}
+                          </div>
                         </div>
-                        <StarRating value={review.rating} readonly size={13} />
+                        {editingId !== review.review_id && (
+                          <StarRating value={review.rating} readonly size={13} />
+                        )}
                       </div>
                     </div>
 
-                    <p className="text-sm leading-relaxed text-muted-foreground mb-4">
-                      {review.review_text}
-                    </p>
-
-                    <div className="flex items-center justify-between">
-                      <button
-                        onClick={() => handleHelpful(review.review_id)}
-                        disabled={helpfulSet.has(review.review_id)}
-                        className={`flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded-full border transition-all ${
-                          helpfulSet.has(review.review_id)
-                            ? 'border-primary/30 text-primary bg-primary/5'
-                            : 'border-border text-muted-foreground/50 hover:border-primary/30 hover:text-primary/70'
-                        }`}
+                    {/* Delete confirmation */}
+                    {confirmDeleteId === review.review_id && (
+                      <motion.div
+                        initial={{ opacity: 0, y: -4 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="mb-3 p-3 rounded-xl bg-destructive/10 border border-destructive/20 flex items-center justify-between gap-3"
                       >
-                        <ThumbsUp size={11} />
-                        {helpfulSet.has(review.review_id) ? 'Helpful' : 'Mark as helpful'}
-                        {(review.helpful_count + (helpfulSet.has(review.review_id) ? 0 : 0)) > 0 && (
-                          <span className="opacity-60">({review.helpful_count})</span>
-                        )}
-                      </button>
-                    </div>
+                        <p className="text-xs text-destructive">Delete this review permanently?</p>
+                        <div className="flex gap-2 shrink-0">
+                          <button
+                            onClick={() => setConfirmDeleteId(null)}
+                            className="text-[11px] px-2.5 py-1 rounded-lg border border-border text-muted-foreground hover:text-foreground transition-colors"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            onClick={() => handleDelete(review.review_id)}
+                            disabled={deletingId === review.review_id}
+                            className="text-[11px] px-2.5 py-1 rounded-lg bg-destructive text-white hover:bg-destructive/80 transition-colors flex items-center gap-1 disabled:opacity-60"
+                          >
+                            {deletingId === review.review_id
+                              ? <Loader2 size={10} className="animate-spin" />
+                              : <Trash2 size={10} />}
+                            Delete
+                          </button>
+                        </div>
+                      </motion.div>
+                    )}
+
+                    {/* Edit mode */}
+                    {editingId === review.review_id ? (
+                      <div className="space-y-3">
+                        <div>
+                          <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground block mb-1.5">Rating</label>
+                          <StarRating value={editRating} onChange={setEditRating} size={22} />
+                        </div>
+                        <textarea
+                          value={editText}
+                          onChange={e => setEditText(e.target.value.slice(0, 500))}
+                          rows={4}
+                          className="w-full rounded-xl border border-primary/30 bg-secondary/20 px-3 py-2.5 text-sm text-foreground focus:outline-none focus:border-primary/50 transition-colors resize-none"
+                          autoFocus
+                        />
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] text-muted-foreground/50">{editText.length}/500</span>
+                          <div className="flex gap-2">
+                            <button
+                              onClick={cancelEdit}
+                              className="flex items-center gap-1 text-[11px] px-3 py-1.5 rounded-lg border border-border text-muted-foreground hover:text-foreground transition-colors"
+                            >
+                              <X size={11} /> Cancel
+                            </button>
+                            <button
+                              onClick={() => saveEdit(review.review_id)}
+                              disabled={editSaving || !editText.trim()}
+                              className="flex items-center gap-1 text-[11px] px-3 py-1.5 rounded-lg gold-gradient text-primary-foreground font-semibold disabled:opacity-50 transition-all"
+                            >
+                              {editSaving ? <Loader2 size={11} className="animate-spin" /> : <Check size={11} />}
+                              Save
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        <p className="text-sm leading-relaxed text-muted-foreground mb-4">
+                          {review.review_text}
+                        </p>
+                        <div className="flex items-center justify-between">
+                          <button
+                            onClick={() => handleHelpful(review.review_id)}
+                            disabled={helpfulSet.has(review.review_id) || user?.id === review.user_id}
+                            className={`flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded-full border transition-all ${
+                              helpfulSet.has(review.review_id)
+                                ? 'border-primary/30 text-primary bg-primary/5'
+                                : user?.id === review.user_id
+                                  ? 'border-border/30 text-muted-foreground/30 cursor-default'
+                                  : 'border-border text-muted-foreground/50 hover:border-primary/30 hover:text-primary/70'
+                            }`}
+                            title={user?.id === review.user_id ? "Can't mark your own review as helpful" : ''}
+                          >
+                            <ThumbsUp size={11} />
+                            {helpfulSet.has(review.review_id) ? 'Helpful' : 'Mark as helpful'}
+                            {review.helpful_count > 0 && (
+                              <span className="opacity-60">({review.helpful_count})</span>
+                            )}
+                          </button>
+                        </div>
+                      </>
+                    )}
                   </motion.div>
                 ))}
               </AnimatePresence>

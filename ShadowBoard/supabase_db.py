@@ -122,6 +122,41 @@ def get_reviews(limit: int = 10, offset: int = 0) -> dict:
         return {"reviews": [], "total": 0}
 
 
+def delete_review(review_id: str, user_id: str) -> bool:
+    try:
+        resp = (
+            _client()
+            .table("reviews")
+            .delete()
+            .eq("review_id", review_id)
+            .eq("user_id", user_id)
+            .execute()
+        )
+        return bool(resp.data)
+    except Exception as e:
+        print(f"[supabase_db] delete_review error: {e}")
+        return False
+
+
+def update_review(review_id: str, user_id: str, review_text: str, rating: int) -> dict | None:
+    try:
+        resp = (
+            _client()
+            .table("reviews")
+            .update({
+                "review_text": review_text[:2000],
+                "rating": max(1, min(5, rating)),
+            })
+            .eq("review_id", review_id)
+            .eq("user_id", user_id)
+            .execute()
+        )
+        return resp.data[0] if resp.data else None
+    except Exception as e:
+        print(f"[supabase_db] update_review error: {e}")
+        return None
+
+
 def get_review_stats() -> dict:
     try:
         resp = (
@@ -152,7 +187,7 @@ def get_profile(user_id: str) -> dict | None:
         resp = (
             _client()
             .table("profiles")
-            .select("id, name, avatar_url, created_at")
+            .select("id, name, email, created_at")
             .eq("id", user_id)
             .single()
             .execute()
@@ -163,12 +198,11 @@ def get_profile(user_id: str) -> dict | None:
         return None
 
 
-def upsert_profile(user_id: str, name: str, avatar_url: str = "") -> None:
+def upsert_profile(user_id: str, name: str) -> None:
     try:
         _client().table("profiles").upsert({
             "id": user_id,
             "name": name,
-            "avatar_url": avatar_url,
         }).execute()
     except Exception as e:
         print(f"[supabase_db] upsert_profile error: {e}")
