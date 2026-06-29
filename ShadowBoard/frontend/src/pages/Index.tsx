@@ -166,10 +166,15 @@ const Index = () => {
       setIsThinking(true);
     });
 
+    let serverErrorReceived = false;
+
     es.addEventListener('error', (e) => {
       try {
         const data = JSON.parse((e as MessageEvent).data);
+        serverErrorReceived = true;
         setError(data.message || 'Pipeline error occurred.');
+        setIsThinking(false);
+        es.close();
       } catch { /* ignore */ }
     });
 
@@ -180,9 +185,9 @@ const Index = () => {
     });
 
     es.onerror = () => {
-      // Only show error if stream wasn't intentionally closed
-      if (es.readyState !== EventSource.CLOSED) {
-        setError('Connection to Board lost. Attempting to reconnect...');
+      if (!serverErrorReceived && es.readyState !== EventSource.CLOSED) {
+        setError('Connection to Board lost — check that the backend is running and OPENAI_API_KEY is set on Render.');
+        setIsThinking(false);
       }
     };
   }, []);
@@ -349,16 +354,22 @@ const Index = () => {
       es.close();
     });
 
+    let compServerErrorReceived = false;
+
     es.addEventListener('error', (e) => {
       try {
         const data = JSON.parse((e as MessageEvent).data);
+        compServerErrorReceived = true;
         setError(data.message || 'Comparison error occurred.');
+        setIsThinking(false);
+        es.close();
       } catch { /* ignore */ }
     });
 
     es.onerror = () => {
-      if (es.readyState !== EventSource.CLOSED) {
-        setError('Connection lost. Attempting to reconnect...');
+      if (!compServerErrorReceived && es.readyState !== EventSource.CLOSED) {
+        setError('Connection lost — check that the backend is running and OPENAI_API_KEY is set on Render.');
+        setIsThinking(false);
       }
     };
   }, []);

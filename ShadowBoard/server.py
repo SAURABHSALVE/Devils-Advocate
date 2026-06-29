@@ -207,6 +207,10 @@ def agents_research(session_id: str, current_user: dict = Depends(get_current_us
         def hb():
             return sse_event("heartbeat", {"ts": time.time()})
 
+        if not os.getenv("OPENAI_API_KEY", "").strip():
+            yield sse_event("error", {"message": "OPENAI_API_KEY is not configured on the server. Set it in your Render environment variables."})
+            return
+
         try:
             yield hb()
             yield sse_event("agent_start", {"agent": "CFO", "action": "researching financial data"})
@@ -499,6 +503,10 @@ def run_comparison(
 
         def hb():
             return sse_event("heartbeat", {"ts": time.time()})
+
+        if not os.getenv("OPENAI_API_KEY", "").strip():
+            yield sse_event("error", {"message": "OPENAI_API_KEY is not configured on the server. Set it in your Render environment variables."})
+            return
 
         yield hb()
         yield sse_event("agent_start", {"agent": "CFO", "action": "researching Option A", "scenario": "A"})
