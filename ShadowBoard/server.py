@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends
 app = FastAPI()
 from pydantic import BaseModel
 import uuid
@@ -16,10 +16,12 @@ import docx
 import io
 from fastapi import UploadFile, File
 from agents_creation import set_board_expertise
-from database import signup_user, login_user, save_session, get_user_sessions, save_comparison, save_review, get_reviews, init_db
+from supabase_db import (
+    save_session, get_user_sessions, save_comparison,
+    save_review, get_reviews, get_profile
+)
+from auth_middleware import get_current_user, get_optional_user
 from memory import get_relevant_memories, save_debate_memory
-
-
 
 from agents_creation import (
     run_research_cfo, run_research_cmo, run_research_legal,
@@ -37,25 +39,17 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-init_db()
 
 def sse_event(event_type, data):
     return f"event: {event_type}\ndata: {json.dumps(data)}\n\n"
 
+
+# ── Request models ────────────────────────────────────────────────────────────
+
 class SessionRequest(BaseModel):
     question: str
-    context: str =""
+    context: str = ""
     board_type: str = "tech"
-    user_id:str =""
-
-class SignupRequest(BaseModel):
-    email: str
-    password: str
-    name: str
-
-class LoginRequest(BaseModel):
-    email: str
-    password: str
 
 class HumanInput(BaseModel):
     human_ip: str
@@ -66,167 +60,144 @@ class ComparisonRequest(BaseModel):
     option_b: str
     context: str = ""
     board_type: str = "tech"
-    user_id: str = ""
 
 class ReviewRequest(BaseModel):
-    reviewer_name: str
     review_text: str
     rating: int = 0
-    user_id: str = ""
+
+class ChatRequest(BaseModel):
+    message: str
+    history: list = []
+
 
 sessions_info = {}
 comparisons_info = {}
+
 
 @app.get("/")
 def home():
     return {"message": "Shadow Board API is running"}
 
+
 def validate_question(question: str) -> str:
-    # Limit length
     if len(question) > 1000:
         question = question[:1000]
-    
-    # Block obvious prompt injection attempts
     blocked_phrases = [
         "ignore previous instructions",
         "ignore your instructions",
         "you are now",
         "forget your role",
         "system prompt",
-        "reveal your prompt"
+        "reveal your prompt",
     ]
     lower = question.lower()
     for phrase in blocked_phrases:
         if phrase in lower:
             raise ValueError("Invalid input detected")
-    
     return question
 
+
+# ── Auth endpoints (Supabase handles the actual auth; these are helpers) ──────
+
+@app.get("/api/auth/me")
+def get_me(current_user: dict = Depends(get_current_user)):
+    """Return the authenticated user's profile."""
+    profile = get_profile(current_user["user_id"])
+    return {
+        "user_id": current_user["user_id"],
+        "email": current_user["email"],
+        "name": profile.get("name") if profile else "",
+    }
+
+
+# ── Session endpoints ─────────────────────────────────────────────────────────
+
 @app.post("/api/session/create")
-def session_id_creation(request: SessionRequest):
-    session_id = str(uuid.uuid4())
-    sessions_info[session_id] = {"question": request.question,"context":request.context,"board_type": request.board_type,"user_id": request.user_id}
+def session_id_creation(
+    request: SessionRequest,
+    current_user: dict = Depends(get_current_user),
+):
     try:
         question = validate_question(request.question)
     except ValueError:
         return {"error": "Invalid question"}
-    # ... rest of code
+
+    session_id = str(uuid.uuid4())
+    sessions_info[session_id] = {
+        "question": question,
+        "context": request.context,
+        "board_type": request.board_type,
+        "user_id": current_user["user_id"],
+    }
     return {"session": session_id}
 
+
 @app.get("/api/{session_id}/download_pdf")
-def download_pdf(session_id):
-    filepath=f"reports/strategy_brief_{session_id}.pdf"
-    return FileResponse(filepath,filename="Shadow_Board_Strategy_Brief.pdf")
+def download_pdf(session_id: str, current_user: dict = Depends(get_current_user)):
+    filepath = f"reports/strategy_brief_{session_id}.pdf"
+    return FileResponse(filepath, filename="Shadow_Board_Strategy_Brief.pdf")
 
 
 @app.post("/api/{session_id}/upload")
-async def upload_file(session_id: str, file: UploadFile = File(...)):
+async def upload_file(
+    session_id: str,
+    file: UploadFile = File(...),
+    current_user: dict = Depends(get_current_user),
+):
     content = await file.read()
     filename = file.filename.lower()
-    
-    if filename.endswith('.txt'):
-        text = content.decode('utf-8')
-    elif filename.endswith('.pdf'):
+
+    if filename.endswith(".txt"):
+        text = content.decode("utf-8")
+    elif filename.endswith(".pdf"):
         doc = fitz.open(stream=content, filetype="pdf")
-        text = ""
-        for page in doc:
-            text += page.get_text()
-    elif filename.endswith('.docx'):
+        text = "".join(page.get_text() for page in doc)
+    elif filename.endswith(".docx"):
         doc = docx.Document(io.BytesIO(content))
-        text = "\n".join([p.text for p in doc.paragraphs])
+        text = "\n".join(p.text for p in doc.paragraphs)
     else:
         text = ""
-    
-    #Store in session
+
     sessions_info[session_id]["file_context"] = text
     return {"status": "uploaded", "characters": len(text)}
 
-def validate_email(email: str) -> bool:
-    """Validate email format."""
-    pattern = r'^[\w\.-]+@[\w\.-]+\.\w+$'
-    return bool(re.match(pattern, email))
 
-
-@app.post("/api/auth/signup")
-def signup(request: SignupRequest):
-    # Validate email format
-    if not validate_email(request.email):
-        return {"status": "error", "message": "Invalid email format"}
-    
-    user = signup_user(request.email, request.password, request.name)
-    if user:
-        return {"status": "success", "user": user}
-    return {"status": "error", "message": "Email already exists or invalid"}
-
-@app.post("/api/auth/login")
-def login(request: LoginRequest):
-    user = login_user(request.email, request.password)
-    if user:
-        return {"status": "success", "user": user}
-    return {"status": "error", "message": "Invalid email or password"}
-
-@app.get("/api/reviews")
-def list_reviews():
-    return {"reviews": get_reviews()}
-
-@app.post("/api/reviews")
-def create_review(request: ReviewRequest):
-    review_id = str(uuid.uuid4())
-    save_review(review_id, request.reviewer_name, request.review_text, request.user_id or None, request.rating)
-    reviews = get_reviews()
-    created = next((review for review in reviews if review["review_id"] == review_id), None)
-    return {"status": "success", "review": created or {"review_id": review_id, "reviewer_name": request.reviewer_name, "review_text": request.review_text}}
-
-@app.get("/api/sessions/history/{user_id}")
-def get_history(user_id: str):
-    sessions = get_user_sessions(user_id)
+@app.get("/api/sessions/history")
+def get_history(current_user: dict = Depends(get_current_user)):
+    sessions = get_user_sessions(current_user["user_id"])
     return {"sessions": sessions}
 
 
-@app.on_event("startup")
-def log_routes():
-    print("Available routes:")
-    for route in app.routes:
-        if hasattr(route, 'path'):
-            print(route.path)
-
+# ── Main debate SSE ───────────────────────────────────────────────────────────
 
 @app.get("/api/{session_id}/agents_research")
-def agents_research(session_id: str):
+def agents_research(session_id: str, current_user: dict = Depends(get_current_user)):
     session = sessions_info[session_id]
     question = session["question"]
-    context=session.get("context", "")
+    context = session.get("context", "")
     board_type = session.get("board_type", "tech")
     set_board_expertise(board_type)
     file_context = session.get("file_context", "")
-    user_id = session.get("user_id", "")
+    user_id = current_user["user_id"]
 
-    # Retrieve past board decisions from Supermemory
     past_insights = ""
     try:
-        if user_id:
-            past_insights = get_relevant_memories(user_id, question)
-            print(f"=== SUPERMEMORY ===")
-            print(f"Past insights found: {len(past_insights)} characters")
-            if past_insights:
-                print(f"Past insights preview: {past_insights[:300]}")
-            else:
-                print("No past insights found")
-            print(f"===================")
+        past_insights = get_relevant_memories(user_id, question)
     except Exception as e:
         print(f"Memory retrieval error: {e}")
 
-    # Build full question with ALL context
     full_question = question
     if context:
         full_question += f"\n\nCOMPANY CONTEXT: {context}"
     if file_context:
         full_question += f"\n\nUPLOADED DOCUMENT:\n{file_context[:3000]}"
     if past_insights:
-        full_question += f"\n\nINSTITUTIONAL MEMORY (past board decisions):\n{past_insights}\n\nUse these past board insights to inform your analysis. Reference past decisions where relevant."
+        full_question += (
+            f"\n\nINSTITUTIONAL MEMORY (past board decisions):\n{past_insights}"
+            "\n\nUse these past board insights to inform your analysis."
+        )
 
     def generate():
-        # ═══ PHASE 1: RESEARCH (one agent at a time) ═══
         yield "retry: 120000\n\n"
         yield sse_event("phase", {"phase": "research"})
 
@@ -246,7 +217,7 @@ def agents_research(session_id: str):
             yield sse_event("error", {"message": f"Agent research failed: {str(e)}"})
             return
 
-        # ═══ PHASE 2: DEBATE ROUND 1 (one agent at a time) ═══
+        # ── Round 1 ──
         yield sse_event("phase", {"phase": "debate", "round": 1})
 
         yield sse_event("agent_start", {"agent": "CFO", "action": "preparing opening statement"})
@@ -265,24 +236,20 @@ def agents_research(session_id: str):
         debate_da = run_debate1_da(full_question, task_cfo, task_cmo, task_legal, debate_cfo, debate_cmo, debate_legal)
         yield sse_event("agent_message", {"agent": "Devils Advocate", "phase": "debate", "round": 1, "text": debate_da.output.raw})
 
-        # ═══ HITL PAUSE ═══
+        # ── HITL pause ──
         yield sse_event("pause", {"round": 1, "prompt": "Ask the board a question"})
-        timeout = 300
         elapsed = 0
         while "human_input" not in sessions_info[session_id]:
             yield sse_event("heartbeat", {"waiting": True})
             time.sleep(2)
             elapsed += 2
-            if elapsed >= timeout:
+            if elapsed >= 300:
                 break
         human_input = sessions_info[session_id].pop("human_input", "")
         target_agent = sessions_info[session_id].pop("target_agent", "all")
-        # have built different messages for targeted vs other agents
+
         if target_agent == "all" or not human_input:
-            cfo_input = human_input
-            cmo_input = human_input
-            legal_input = human_input
-            da_input = human_input
+            cfo_input = cmo_input = legal_input = da_input = human_input
         else:
             direct = f"The human decision-maker has DIRECTLY CHALLENGED YOU: '{human_input}'. Respond to this challenge FIRST."
             observe = f"The human challenged the {target_agent} with: '{human_input}'. Consider their exchange and adjust your position if needed."
@@ -291,7 +258,7 @@ def agents_research(session_id: str):
             legal_input = direct if target_agent == "Legal" else observe
             da_input = direct if target_agent == "Devils Advocate" else observe
 
-        # ═══ PHASE 2: DEBATE ROUND 2 (one agent at a time) ═══
+        # ── Round 2 ──
         yield sse_event("resume", {"message": "Debate continuing"})
         yield sse_event("phase", {"phase": "debate", "round": 2})
 
@@ -311,9 +278,8 @@ def agents_research(session_id: str):
         debate_da_2 = run_debate2_da(full_question, debate_cfo, debate_cmo, debate_legal, debate_da, debate_cfo_2, debate_cmo_2, debate_legal_2, da_input)
         yield sse_event("agent_message", {"agent": "Devils Advocate", "phase": "debate", "round": 2, "text": debate_da_2.output.raw})
 
-        # ═══ PHASE 2: DEBATE ROUND 3 (one agent at a time) ═══
+        # ── Round 3 ──
         yield sse_event("phase", {"phase": "debate", "round": 3})
-
         all_context_r3 = [debate_cfo, debate_cmo, debate_legal, debate_da,
                           debate_cfo_2, debate_cmo_2, debate_legal_2, debate_da_2]
 
@@ -333,45 +299,39 @@ def agents_research(session_id: str):
         debate_da_3 = run_debate3_da(full_question, all_context_r3 + [debate_cfo_3, debate_cmo_3, debate_legal_3])
         yield sse_event("agent_message", {"agent": "Devils Advocate", "phase": "final", "round": 3, "text": debate_da_3.output.raw})
 
-        # ═══ PHASE 3: MODERATOR SYNTHESIS ═══
+        # ── Synthesis ──
         yield sse_event("phase", {"phase": "synthesis"})
-
-        all_context_mod = [debate_cfo, debate_cmo, debate_legal, debate_da,
-                           debate_cfo_2, debate_cmo_2, debate_legal_2, debate_da_2,
-                           debate_cfo_3, debate_cmo_3, debate_legal_3, debate_da_3]
+        all_context_mod = all_context_r3 + [debate_cfo_3, debate_cmo_3, debate_legal_3, debate_da_3]
 
         yield sse_event("agent_start", {"agent": "Moderator", "action": "synthesizing debate"})
         moderator_task = run_moderator(full_question, all_context_mod)
         yield sse_event("agent_message", {"agent": "Moderator", "phase": "synthesis", "text": moderator_task.output.raw})
-        moderator_txt=moderator_task.output.raw
-        filepath=generate_strategy_brief_pdf(full_question,moderator_txt,session_id)
+
+        generate_strategy_brief_pdf(full_question, moderator_task.output.raw, session_id)
         yield sse_event("brief_ready", {"download_url": f"/api/{session_id}/download_pdf"})
 
         votes = {
             "CFO": parse_vote(debate_cfo_3),
             "CMO": parse_vote(debate_cmo_3),
             "Legal": parse_vote(debate_legal_3),
-            "Devils Advocate": parse_vote(debate_da_3)
+            "Devils Advocate": parse_vote(debate_da_3),
         }
         send_slack_notification(question, votes, moderator_task.output.raw)
 
-        # Save to database
-        if user_id:
-            save_session(
-                session_id=session_id,
-                user_id=user_id,
-                question=question,
-                context=context,
-                board_type=board_type,
-                votes=votes,
-                moderator_summary=moderator_task.output.raw[:2000]
-            )
+        save_session(
+            session_id=session_id,
+            user_id=user_id,
+            question=question,
+            context=context,
+            board_type=board_type,
+            votes=votes,
+            moderator_summary=moderator_task.output.raw[:2000],
+        )
 
-            # Save to Supermemory for future semantic recall
-            try:
-                save_debate_memory(user_id, question, votes, moderator_task.output.raw, board_type)
-            except Exception as e:
-                print(f"Supermemory save error: {e}")
+        try:
+            save_debate_memory(user_id, question, votes, moderator_task.output.raw, board_type)
+        except Exception as e:
+            print(f"Supermemory save error: {e}")
 
         yield sse_event("complete", {"message": "Shadow Board session complete"})
 
@@ -379,69 +339,92 @@ def agents_research(session_id: str):
 
 
 @app.post("/api/{session_id}/human_input")
-def human_input_endpoint(session_id: str, request: HumanInput):
-    session_info = sessions_info[session_id]
-    session_info["human_input"] = request.human_ip
-    session_info["target_agent"] = request.target_agent
+def human_input_endpoint(
+    session_id: str,
+    request: HumanInput,
+    current_user: dict = Depends(get_current_user),
+):
+    sessions_info[session_id]["human_input"] = request.human_ip
+    sessions_info[session_id]["target_agent"] = request.target_agent
     return {"status": "received"}
 
 
-# ═══════════════════════════════════════════════
-# SCENARIO COMPARISON MODE
-# ═══════════════════════════════════════════════
+# ── Reviews ───────────────────────────────────────────────────────────────────
+
+@app.get("/api/reviews")
+def list_reviews():
+    return {"reviews": get_reviews()}
+
+
+@app.post("/api/reviews")
+def create_review(
+    request: ReviewRequest,
+    current_user: dict = Depends(get_current_user),
+):
+    review_id = str(uuid.uuid4())
+    profile = get_profile(current_user["user_id"])
+    reviewer_name = (profile or {}).get("name") or current_user["email"]
+    save_review(review_id, reviewer_name, request.review_text, current_user["user_id"], request.rating)
+    reviews = get_reviews()
+    created = next((r for r in reviews if r["review_id"] == review_id), None)
+    return {"status": "success", "review": created or {"review_id": review_id}}
+
+
+# ── Scenario comparison ───────────────────────────────────────────────────────
 
 @app.post("/api/comparison/create")
-def create_comparison(request: ComparisonRequest):
-    comparison_id = str(uuid.uuid4())
+def create_comparison(
+    request: ComparisonRequest,
+    current_user: dict = Depends(get_current_user),
+):
     try:
         option_a = validate_question(request.option_a)
         option_b = validate_question(request.option_b)
     except ValueError:
         return {"error": "Invalid question detected"}
+
+    comparison_id = str(uuid.uuid4())
     comparisons_info[comparison_id] = {
         "option_a": option_a,
         "option_b": option_b,
         "context": request.context,
         "board_type": request.board_type,
-        "user_id": request.user_id
+        "user_id": current_user["user_id"],
     }
     return {"comparison_id": comparison_id}
 
 
 @app.get("/api/{comparison_id}/compare")
-def run_comparison(comparison_id: str):
+def run_comparison(
+    comparison_id: str,
+    current_user: dict = Depends(get_current_user),
+):
     comparison = comparisons_info[comparison_id]
     option_a = comparison["option_a"]
     option_b = comparison["option_b"]
     context = comparison.get("context", "")
     board_type = comparison.get("board_type", "tech")
-    user_id = comparison.get("user_id", "")
+    user_id = current_user["user_id"]
 
     set_board_expertise(board_type)
 
-    full_a = option_a
-    full_b = option_b
-    if context:
-        full_a += f"\n\nCOMPANY CONTEXT: {context}"
-        full_b += f"\n\nCOMPANY CONTEXT: {context}"
+    full_a = option_a + (f"\n\nCOMPANY CONTEXT: {context}" if context else "")
+    full_b = option_b + (f"\n\nCOMPANY CONTEXT: {context}" if context else "")
 
     try:
-        memories_a = get_relevant_memories(user_id, option_a) if user_id else ""
-        memories_b = get_relevant_memories(user_id, option_b) if user_id else ""
-        if memories_a:
-            full_a += f"\n\nINSTITUTIONAL MEMORY:\n{memories_a}"
-        if memories_b:
-            full_b += f"\n\nINSTITUTIONAL MEMORY:\n{memories_b}"
+        mem_a = get_relevant_memories(user_id, option_a) if user_id else ""
+        mem_b = get_relevant_memories(user_id, option_b) if user_id else ""
+        if mem_a:
+            full_a += f"\n\nINSTITUTIONAL MEMORY:\n{mem_a}"
+        if mem_b:
+            full_b += f"\n\nINSTITUTIONAL MEMORY:\n{mem_b}"
     except Exception as e:
         print(f"Memory retrieval error: {e}")
 
     def generate():
         yield "retry: 120000\n\n"
-
         yield sse_event("comparison_status", {"scenario": "A", "status": "starting", "label": option_a})
         yield sse_event("comparison_status", {"scenario": "B", "status": "starting", "label": option_b})
-
-        # ═══ RESEARCH PHASE (interleaved A/B for real-time updates on both sides) ═══
         yield sse_event("phase", {"phase": "scenario_a_research", "scenario": "A"})
         yield sse_event("phase", {"phase": "scenario_b_research", "scenario": "B"})
 
@@ -469,7 +452,6 @@ def run_comparison(comparison_id: str):
         task_legal_b = run_research_legal(full_b)
         yield sse_event("agent_message", {"agent": "Legal", "phase": "research", "scenario": "B", "text": task_legal_b.output.raw})
 
-        # ═══ DEBATE ROUND 1 (interleaved A/B) ═══
         yield sse_event("phase", {"phase": "scenario_a_debate1", "scenario": "A", "round": 1})
         yield sse_event("phase", {"phase": "scenario_b_debate1", "scenario": "B", "round": 1})
 
@@ -505,38 +487,31 @@ def run_comparison(comparison_id: str):
         debate_da_b = run_debate1_da(full_b, task_cfo_b, task_cmo_b, task_legal_b, debate_cfo_b, debate_cmo_b, debate_legal_b)
         yield sse_event("agent_message", {"agent": "Devils Advocate", "phase": "debate", "round": 1, "scenario": "B", "text": debate_da_b.output.raw})
 
-        # ═══ SINGLE HITL PAUSE (for both options after Round 1) ═══
-        yield sse_event("pause", {"round": 1, "scenario": "BOTH", "prompt": "Both options have completed Round 1. Share your thoughts with the board."})
-
-        timeout = 300
+        # ── HITL ──
+        yield sse_event("pause", {"round": 1, "scenario": "BOTH", "prompt": "Both options have completed Round 1. Share your thoughts."})
         elapsed = 0
         while "human_input" not in comparisons_info[comparison_id]:
             yield sse_event("heartbeat", {"waiting": True})
             time.sleep(2)
             elapsed += 2
-            if elapsed >= timeout:
+            if elapsed >= 300:
                 break
 
         human_input = comparisons_info[comparison_id].pop("human_input", "")
         target_agent = comparisons_info[comparison_id].pop("target_agent", "all")
-
         yield sse_event("resume", {"message": "Debate continuing for both options"})
 
-        # Route human input to agents
         if target_agent == "all" or not human_input:
-            cfo_input = human_input
-            cmo_input = human_input
-            legal_input = human_input
-            da_input = human_input
+            cfo_input = cmo_input = legal_input = da_input = human_input
         else:
-            direct = f"The human decision-maker has DIRECTLY CHALLENGED YOU: '{human_input}'. Respond to this challenge FIRST."
-            observe = f"The human challenged the {target_agent} with: '{human_input}'. Consider their exchange and adjust your position if needed."
+            direct = f"The human decision-maker has DIRECTLY CHALLENGED YOU: '{human_input}'. Respond FIRST."
+            observe = f"The human challenged the {target_agent} with: '{human_input}'. Adjust if needed."
             cfo_input = direct if target_agent == "CFO" else observe
             cmo_input = direct if target_agent == "CMO" else observe
             legal_input = direct if target_agent == "Legal" else observe
             da_input = direct if target_agent == "Devils Advocate" else observe
 
-        # ═══ DEBATE ROUND 2 (interleaved A/B) ═══
+        # ── Round 2 ──
         yield sse_event("phase", {"phase": "scenario_a_debate2", "scenario": "A", "round": 2})
         yield sse_event("phase", {"phase": "scenario_b_debate2", "scenario": "B", "round": 2})
 
@@ -572,14 +547,12 @@ def run_comparison(comparison_id: str):
         debate_da_2b = run_debate2_da(full_b, debate_cfo_b, debate_cmo_b, debate_legal_b, debate_da_b, debate_cfo_2b, debate_cmo_2b, debate_legal_2b, da_input)
         yield sse_event("agent_message", {"agent": "Devils Advocate", "phase": "debate", "round": 2, "scenario": "B", "text": debate_da_2b.output.raw})
 
-        # ═══ DEBATE ROUND 3 — FINAL POSITIONS (interleaved A/B) ═══
+        # ── Round 3 ──
         yield sse_event("phase", {"phase": "scenario_a_debate3", "scenario": "A", "round": 3})
         yield sse_event("phase", {"phase": "scenario_b_debate3", "scenario": "B", "round": 3})
 
-        all_r3_a = [debate_cfo_a, debate_cmo_a, debate_legal_a, debate_da_a,
-                    debate_cfo_2a, debate_cmo_2a, debate_legal_2a, debate_da_2a]
-        all_r3_b = [debate_cfo_b, debate_cmo_b, debate_legal_b, debate_da_b,
-                    debate_cfo_2b, debate_cmo_2b, debate_legal_2b, debate_da_2b]
+        all_r3_a = [debate_cfo_a, debate_cmo_a, debate_legal_a, debate_da_a, debate_cfo_2a, debate_cmo_2a, debate_legal_2a, debate_da_2a]
+        all_r3_b = [debate_cfo_b, debate_cmo_b, debate_legal_b, debate_da_b, debate_cfo_2b, debate_cmo_2b, debate_legal_2b, debate_da_2b]
 
         yield sse_event("agent_start", {"agent": "CFO", "action": "final position on Option A", "scenario": "A"})
         debate_cfo_3a = run_debate3_cfo(full_a, all_r3_a)
@@ -613,119 +586,78 @@ def run_comparison(comparison_id: str):
         debate_da_3b = run_debate3_da(full_b, all_r3_b + [debate_cfo_3b, debate_cmo_3b, debate_legal_3b])
         yield sse_event("agent_message", {"agent": "Devils Advocate", "phase": "final", "round": 3, "scenario": "B", "text": debate_da_3b.output.raw})
 
-        # ═══ MODERATOR SYNTHESIS (A then B) ═══
+        # ── Moderator ──
         yield sse_event("phase", {"phase": "scenario_a_synthesis", "scenario": "A"})
-
-        all_mod_a = [debate_cfo_a, debate_cmo_a, debate_legal_a, debate_da_a,
-                     debate_cfo_2a, debate_cmo_2a, debate_legal_2a, debate_da_2a,
-                     debate_cfo_3a, debate_cmo_3a, debate_legal_3a, debate_da_3a]
-
+        all_mod_a = all_r3_a + [debate_cfo_3a, debate_cmo_3a, debate_legal_3a, debate_da_3a]
         yield sse_event("agent_start", {"agent": "Moderator", "action": "synthesizing Option A debate", "scenario": "A"})
         moderator_a = run_moderator(full_a, all_mod_a)
         yield sse_event("agent_message", {"agent": "Moderator", "phase": "synthesis", "scenario": "A", "text": moderator_a.output.raw})
 
-        votes_a = {
-            "CFO": parse_vote(debate_cfo_3a),
-            "CMO": parse_vote(debate_cmo_3a),
-            "Legal": parse_vote(debate_legal_3a),
-            "Devils Advocate": parse_vote(debate_da_3a)
-        }
+        votes_a = {"CFO": parse_vote(debate_cfo_3a), "CMO": parse_vote(debate_cmo_3a), "Legal": parse_vote(debate_legal_3a), "Devils Advocate": parse_vote(debate_da_3a)}
         yield sse_event("comparison_status", {"scenario": "A", "status": "complete", "votes": votes_a})
 
         yield sse_event("phase", {"phase": "scenario_b_synthesis", "scenario": "B"})
-
-        all_mod_b = [debate_cfo_b, debate_cmo_b, debate_legal_b, debate_da_b,
-                     debate_cfo_2b, debate_cmo_2b, debate_legal_2b, debate_da_2b,
-                     debate_cfo_3b, debate_cmo_3b, debate_legal_3b, debate_da_3b]
-
+        all_mod_b = all_r3_b + [debate_cfo_3b, debate_cmo_3b, debate_legal_3b, debate_da_3b]
         yield sse_event("agent_start", {"agent": "Moderator", "action": "synthesizing Option B debate", "scenario": "B"})
         moderator_b = run_moderator(full_b, all_mod_b)
         yield sse_event("agent_message", {"agent": "Moderator", "phase": "synthesis", "scenario": "B", "text": moderator_b.output.raw})
 
-        votes_b = {
-            "CFO": parse_vote(debate_cfo_3b),
-            "CMO": parse_vote(debate_cmo_3b),
-            "Legal": parse_vote(debate_legal_3b),
-            "Devils Advocate": parse_vote(debate_da_3b)
-        }
+        votes_b = {"CFO": parse_vote(debate_cfo_3b), "CMO": parse_vote(debate_cmo_3b), "Legal": parse_vote(debate_legal_3b), "Devils Advocate": parse_vote(debate_da_3b)}
         yield sse_event("comparison_status", {"scenario": "B", "status": "complete", "votes": votes_b})
 
-        # Build result dicts for PDF / DB
-        result_a = {
-            "moderator": moderator_a.output.raw,
-            "votes": votes_a,
-            "research": {"CFO": task_cfo_a.output.raw, "CMO": task_cmo_a.output.raw, "Legal": task_legal_a.output.raw},
-            "debate_r1": {"CFO": debate_cfo_a.output.raw, "CMO": debate_cmo_a.output.raw, "Legal": debate_legal_a.output.raw, "Devils Advocate": debate_da_a.output.raw},
-            "debate_r2": {"CFO": debate_cfo_2a.output.raw, "CMO": debate_cmo_2a.output.raw, "Legal": debate_legal_2a.output.raw, "Devils Advocate": debate_da_2a.output.raw},
-            "final_positions": {"CFO": debate_cfo_3a.output.raw, "CMO": debate_cmo_3a.output.raw, "Legal": debate_legal_3a.output.raw, "Devils Advocate": debate_da_3a.output.raw}
-        }
-        result_b = {
-            "moderator": moderator_b.output.raw,
-            "votes": votes_b,
-            "research": {"CFO": task_cfo_b.output.raw, "CMO": task_cmo_b.output.raw, "Legal": task_legal_b.output.raw},
-            "debate_r1": {"CFO": debate_cfo_b.output.raw, "CMO": debate_cmo_b.output.raw, "Legal": debate_legal_b.output.raw, "Devils Advocate": debate_da_b.output.raw},
-            "debate_r2": {"CFO": debate_cfo_2b.output.raw, "CMO": debate_cmo_2b.output.raw, "Legal": debate_legal_2b.output.raw, "Devils Advocate": debate_da_2b.output.raw},
-            "final_positions": {"CFO": debate_cfo_3b.output.raw, "CMO": debate_cmo_3b.output.raw, "Legal": debate_legal_3b.output.raw, "Devils Advocate": debate_da_3b.output.raw}
-        }
+        result_a = {"moderator": moderator_a.output.raw, "votes": votes_a}
+        result_b = {"moderator": moderator_b.output.raw, "votes": votes_b}
 
-        # ═══ COMPARATIVE ANALYSIS ═══
         yield sse_event("phase", {"phase": "comparative_analysis"})
         yield sse_event("agent_start", {"agent": "Comparison Analyst", "action": "generating comparative analysis"})
 
-        question_context = f"{option_a} vs {option_b}"
-        if context:
-            question_context += f"\nContext: {context}"
-
         comparison_task = run_comparative_analysis(
-            question_context=question_context,
+            question_context=f"{option_a} vs {option_b}" + (f"\nContext: {context}" if context else ""),
             option_a_label=option_a[:80],
             option_b_label=option_b[:80],
             moderator_a_text=result_a["moderator"],
             moderator_b_text=result_b["moderator"],
             votes_a=result_a["votes"],
-            votes_b=result_b["votes"]
+            votes_b=result_b["votes"],
         )
         comparison_text = comparison_task.output.raw
+        yield sse_event("agent_message", {"agent": "Comparison Analyst", "phase": "comparative_analysis", "text": comparison_text})
 
-        yield sse_event("agent_message", {
-            "agent": "Comparison Analyst", "phase": "comparative_analysis",
-            "text": comparison_text
-        })
-
-        filepath = generate_comparison_pdf(
-            option_a=option_a,
-            option_b=option_b,
-            result_a=result_a,
-            result_b=result_b,
+        generate_comparison_pdf(
+            option_a=option_a, option_b=option_b,
+            result_a={"moderator": moderator_a.output.raw, "votes": votes_a,
+                      "research": {"CFO": task_cfo_a.output.raw, "CMO": task_cmo_a.output.raw, "Legal": task_legal_a.output.raw},
+                      "debate_r1": {"CFO": debate_cfo_a.output.raw, "CMO": debate_cmo_a.output.raw, "Legal": debate_legal_a.output.raw, "Devils Advocate": debate_da_a.output.raw},
+                      "debate_r2": {"CFO": debate_cfo_2a.output.raw, "CMO": debate_cmo_2a.output.raw, "Legal": debate_legal_2a.output.raw, "Devils Advocate": debate_da_2a.output.raw},
+                      "final_positions": {"CFO": debate_cfo_3a.output.raw, "CMO": debate_cmo_3a.output.raw, "Legal": debate_legal_3a.output.raw, "Devils Advocate": debate_da_3a.output.raw}},
+            result_b={"moderator": moderator_b.output.raw, "votes": votes_b,
+                      "research": {"CFO": task_cfo_b.output.raw, "CMO": task_cmo_b.output.raw, "Legal": task_legal_b.output.raw},
+                      "debate_r1": {"CFO": debate_cfo_b.output.raw, "CMO": debate_cmo_b.output.raw, "Legal": debate_legal_b.output.raw, "Devils Advocate": debate_da_b.output.raw},
+                      "debate_r2": {"CFO": debate_cfo_2b.output.raw, "CMO": debate_cmo_2b.output.raw, "Legal": debate_legal_2b.output.raw, "Devils Advocate": debate_da_2b.output.raw},
+                      "final_positions": {"CFO": debate_cfo_3b.output.raw, "CMO": debate_cmo_3b.output.raw, "Legal": debate_legal_3b.output.raw, "Devils Advocate": debate_da_3b.output.raw}},
             comparison_text=comparison_text,
-            comparison_id=comparison_id
+            comparison_id=comparison_id,
         )
         yield sse_event("brief_ready", {"download_url": f"/api/{comparison_id}/download_comparison_pdf"})
 
-        if user_id:
-            save_comparison(
-                comparison_id=comparison_id,
-                user_id=user_id,
-                option_a=option_a,
-                option_b=option_b,
-                context=context,
-                board_type=board_type,
-                votes_a=result_a["votes"],
-                votes_b=result_b["votes"],
-                comparison_summary=comparison_text[:3000]
-            )
-            try:
-                save_debate_memory(user_id, option_a, result_a["votes"], result_a["moderator"], board_type)
-                save_debate_memory(user_id, option_b, result_b["votes"], result_b["moderator"], board_type)
-            except Exception as e:
-                print(f"Supermemory save error: {e}")
+        save_comparison(
+            comparison_id=comparison_id, user_id=user_id,
+            option_a=option_a, option_b=option_b, context=context,
+            board_type=board_type, votes_a=votes_a, votes_b=votes_b,
+            comparison_summary=comparison_text[:3000],
+        )
+
+        try:
+            save_debate_memory(user_id, option_a, votes_a, moderator_a.output.raw, board_type)
+            save_debate_memory(user_id, option_b, votes_b, moderator_b.output.raw, board_type)
+        except Exception as e:
+            print(f"Supermemory save error: {e}")
 
         try:
             send_slack_notification(
                 f"[COMPARISON] {option_a} vs {option_b}",
-                {**{f"A-{k}": v for k, v in result_a["votes"].items()},
-                 **{f"B-{k}": v for k, v in result_b["votes"].items()}},
-                comparison_text
+                {**{f"A-{k}": v for k, v in votes_a.items()}, **{f"B-{k}": v for k, v in votes_b.items()}},
+                comparison_text,
             )
             yield sse_event("slack_sent", {"message": "Slack notification sent"})
         except Exception as e:
@@ -737,37 +669,38 @@ def run_comparison(comparison_id: str):
 
 
 @app.post("/api/{comparison_id}/comparison_human_input")
-def comparison_human_input_endpoint(comparison_id: str, request: HumanInput):
-    """Accept single human input for both scenarios during comparison."""
+def comparison_human_input_endpoint(
+    comparison_id: str,
+    request: HumanInput,
+    current_user: dict = Depends(get_current_user),
+):
     comparisons_info[comparison_id]["human_input"] = request.human_ip
     comparisons_info[comparison_id]["target_agent"] = request.target_agent
     return {"status": "received"}
 
 
 @app.get("/api/{comparison_id}/download_comparison_pdf")
-def download_comparison_pdf(comparison_id: str):
+def download_comparison_pdf(comparison_id: str, current_user: dict = Depends(get_current_user)):
     filepath = f"reports/comparison_{comparison_id}.pdf"
     return FileResponse(filepath, filename="Shadow_Board_Scenario_Comparison.pdf")
 
 
-# ═══════════════════════════════════════════════
-# SPEECH-TO-TEXT (OpenAI Whisper API)
-# ═══════════════════════════════════════════════
+# ── Speech-to-text ────────────────────────────────────────────────────────────
 
 from openai import OpenAI
 import os
 import tempfile
 
 @app.post("/api/speech-to-text")
-async def speech_to_text(file: UploadFile = File(...)):
-    """Transcribe audio to text using OpenAI Whisper API."""
+async def speech_to_text(
+    file: UploadFile = File(...),
+    current_user: dict = Depends(get_current_user),
+):
     openai_key = os.getenv("OPENAI_API_KEY")
     if not openai_key:
         return {"error": "OPENAI_API_KEY not configured"}
 
     content = await file.read()
-
-    # Write to temp file (Whisper needs a file path)
     suffix = os.path.splitext(file.filename or "audio.webm")[1] or ".webm"
     with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
         tmp.write(content)
@@ -777,9 +710,7 @@ async def speech_to_text(file: UploadFile = File(...)):
         client = OpenAI(api_key=openai_key)
         with open(tmp_path, "rb") as audio_file:
             transcript = client.audio.transcriptions.create(
-                model="whisper-1",
-                file=audio_file,
-                language="en",
+                model="whisper-1", file=audio_file, language="en"
             )
         return {"text": transcript.text}
     except Exception as e:
@@ -788,9 +719,7 @@ async def speech_to_text(file: UploadFile = File(...)):
         os.unlink(tmp_path)
 
 
-# ═══════════════════════════════════════════════
-# AIRIA CHAT WIDGET PROXY
-# ═══════════════════════════════════════════════
+# ── AIRIA chat proxy ──────────────────────────────────────────────────────────
 
 AIRIA_EMBED_API = "https://embed-api.airia.ai"
 AIRIA_PIPELINE_ID = os.getenv("AIRIA_PIPELINE_ID", "").strip()
@@ -798,75 +727,36 @@ AIRIA_WIDGET_API_KEY = os.getenv("AIRIA_WIDGET_API_KEY", "").strip()
 
 @app.get("/api/airia-config")
 def get_airia_config():
-    """Serve AIRIA embed config to frontend without exposing keys in source."""
-    return {
-        "pipelineId": AIRIA_PIPELINE_ID,
-        "apiKey": AIRIA_WIDGET_API_KEY,
-        "apiUrl": AIRIA_EMBED_API,
-    }
-
-class ChatRequest(BaseModel):
-    message: str
-    history: list = []
+    return {"pipelineId": AIRIA_PIPELINE_ID, "apiKey": AIRIA_WIDGET_API_KEY, "apiUrl": AIRIA_EMBED_API}
 
 @app.post("/api/chat")
 def airia_chat(request: ChatRequest):
-    """Proxy chat messages to AIRIA pipeline via OpenAI-compatible endpoint."""
     import requests as http_requests
 
-    messages = []
-    for msg in request.history:
-        messages.append({"role": msg.get("role", "user"), "content": msg.get("content", "")})
+    messages = [{"role": m.get("role", "user"), "content": m.get("content", "")} for m in request.history]
     messages.append({"role": "user", "content": request.message})
+    headers = {"Content-Type": "application/json", "Authorization": f"Bearer {AIRIA_WIDGET_API_KEY}", "X-API-Key": AIRIA_WIDGET_API_KEY}
+    payload = {"model": AIRIA_PIPELINE_ID, "messages": messages}
 
-    # Try the OpenAI-compatible endpoint that AIRIA exposes
-    headers = {
-        "Content-Type": "application/json",
-        "Authorization": f"Bearer {AIRIA_WIDGET_API_KEY}",
-        "X-API-Key": AIRIA_WIDGET_API_KEY,
-    }
-
-    # Use the OpenAI-compatible chat completions format
-    payload = {
-        "model": AIRIA_PIPELINE_ID,
-        "messages": messages,
-    }
-
-    # Try multiple endpoint patterns
-    endpoints = [
-        f"{AIRIA_EMBED_API}/v1/chat/completions",
-        f"{AIRIA_EMBED_API}/api/v1/chat/completions",
-        f"{AIRIA_EMBED_API}/chat/completions",
-    ]
-
-    for url in endpoints:
+    for url in [f"{AIRIA_EMBED_API}/v1/chat/completions", f"{AIRIA_EMBED_API}/api/v1/chat/completions"]:
         try:
             resp = http_requests.post(url, headers=headers, json=payload, timeout=60)
             if resp.status_code == 200:
                 data = resp.json()
-                reply = (
-                    data.get("choices", [{}])[0].get("message", {}).get("content")
-                    or data.get("result")
-                    or data.get("response")
-                    or str(data)
-                )
+                reply = data.get("choices", [{}])[0].get("message", {}).get("content") or data.get("result") or str(data)
                 return {"reply": reply}
         except Exception:
             continue
 
-    # Fallback: use OpenAI directly with the same key used by CrewAI agents
     try:
         openai_key = os.getenv("OPENAI_API_KEY")
         if openai_key:
             client = OpenAI(api_key=openai_key)
             response = client.chat.completions.create(
                 model="gpt-4o-mini",
-                messages=[
-                    {"role": "system", "content": "You are a helpful AI assistant for the Shadow Board platform — an AI-powered executive decision simulation tool built for the AIRIA AI Agent Challenge. Help users understand how Shadow Board works, answer questions about strategic decision-making, and provide general assistance. Be concise and professional."},
-                    *messages,
-                ],
+                messages=[{"role": "system", "content": "You are a helpful AI assistant for the Shadow Board platform."}, *messages],
                 max_tokens=500,
             )
             return {"reply": response.choices[0].message.content}
     except Exception as e:
-        return {"reply": f"I'm having trouble connecting right now. Please try again. ({str(e)[:100]})"}
+        return {"reply": f"I'm having trouble connecting right now. ({str(e)[:100]})"}

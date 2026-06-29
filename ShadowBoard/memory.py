@@ -4,12 +4,15 @@ from dotenv import load_dotenv
 
 load_dotenv(os.path.join(os.path.dirname(__file__), "..", ".env"))
 
-client = Supermemory(api_key=os.getenv("SUPERMEMORY_API_KEY"))
+_api_key = os.getenv("SUPERMEMORY_API_KEY", "").strip()
+client = Supermemory(api_key=_api_key) if _api_key else None
 
 CONTAINER = "shadow_board"
 
 
 def save_debate_memory(user_id, question, votes, moderator_summary, board_type):
+    if not client:
+        return
     try:
         vote_text = ', '.join([f'{agent}: {vote}' for agent, vote in votes.items()])
         content = f"Board Debate on: {question}\nBoard Type: {board_type}\nVotes: {vote_text}\nKey Findings: {moderator_summary[:1000]}"
@@ -25,6 +28,8 @@ def save_debate_memory(user_id, question, votes, moderator_summary, board_type):
 
 
 def get_relevant_memories(user_id, question):
+    if not client:
+        return ""
     try:
         results = client.search.memories(
             q=question,

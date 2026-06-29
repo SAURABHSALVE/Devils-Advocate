@@ -6,6 +6,8 @@ import MessageCard, { type AgentMessage } from '@/components/MessageCard';
 import HumanInputPanel from '@/components/HumanInputPanel';
 import TypingIndicator from '@/components/TypingIndicator';
 import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
+import { useAuth } from '@/context/AuthContext';
+import AuthPage from '@/components/AuthPage';
 
 const API_BASE = (import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000').replace(/\/$/, '');
 
@@ -51,14 +53,9 @@ const Index = () => {
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [boardType, setBoardType] = useState('tech');
-  const [user, setUser] = useState<any>(null);
-  const [authMode, setAuthMode] = useState<'login' | 'signup'>('login');
+  const { user, signOut, getAccessToken } = useAuth();
   const howItWorksRef = useRef<HTMLDivElement | null>(null);
   const reviewsRef = useRef<HTMLDivElement | null>(null);
-  const [authEmail, setAuthEmail] = useState('');
-  const [authPassword, setAuthPassword] = useState('');
-  const [authName, setAuthName] = useState('');
-  const [authError, setAuthError] = useState('');
   const [showHistory, setShowHistory] = useState(false);
   const [history, setHistory] = useState<any[]>([]);
   const [compareSession, setCompareSession] = useState<any>(null);
@@ -106,8 +103,12 @@ const Index = () => {
     };
   }, []);
 
-  const initSSE = useCallback((sid: string) => {
-    const es = new EventSource(`${API_BASE}/api/${sid}/agents_research`);
+  const initSSE = useCallback(async (sid: string) => {
+    const token = await getAccessToken();
+    const url = token
+      ? `${API_BASE}/api/${sid}/agents_research?token=${encodeURIComponent(token)}`
+      : `${API_BASE}/api/${sid}/agents_research`;
+    const es = new EventSource(url);
     eventSourceRef.current = es;
     setIsThinking(true);
 
@@ -195,10 +196,10 @@ const Index = () => {
     setIsStarting(true);
     setError(null);
     try {
-      const res = await fetch(`${API_BASE}/api/session/create`, {
+      const res = await authFetch(`${API_BASE}/api/session/create`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ question, context, board_type: boardType,user_id: user?.user_id || '' }),
+        body: JSON.stringify({ question, context, board_type: boardType }),
       });
       const data = await res.json();
       setSessionId(data.session);
@@ -207,7 +208,7 @@ const Index = () => {
       if (uploadedFile) {
         const formData = new FormData();
         formData.append('file', uploadedFile);
-        await fetch(`${API_BASE}/api/${data.session}/upload`, {
+        await authFetch(`${API_BASE}/api/${data.session}/upload`, {
           method: 'POST',
           body: formData,
         });
@@ -221,10 +222,21 @@ const Index = () => {
   };
 
 
+  const authFetch = useCallback(async (url: string, options: RequestInit = {}) => {
+    const token = await getAccessToken();
+    return fetch(url, {
+      ...options,
+      headers: {
+        ...(options.headers as Record<string, string> || {}),
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+    });
+  }, [getAccessToken]);
+
   const submitHumanInput = async (text: string, targetAgent: string = 'all') => {
     if (!sessionId) return;
     try {
-      const response = await fetch(`${API_BASE}/api/${sessionId}/human_input`, {
+      const response = await authFetch(`${API_BASE}/api/${sessionId}/human_input`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ human_ip: text, target_agent: targetAgent }),
@@ -239,50 +251,10 @@ const Index = () => {
       setError('Failed to send input. Please try again.');
     }
   };
-  const handleLogin = async () => {
-    setAuthError('');
-    try {
-        const res = await fetch(`${API_BASE}/api/auth/login`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email: authEmail, password: authPassword }),
-        });
-        const data = await res.json();
-        if (data.status === 'success') {
-            setUser(data.user);
-        } else {
-            setAuthError(data.message);
-        }
-    } catch (err) {
-        console.error('Login error:', err);
-        setAuthError('Connection failed — check if backend is running on port 8000');
-    }
-};
-
-  const handleSignup = async () => {
-      setAuthError('');
-      try {
-          const res = await fetch(`${API_BASE}/api/auth/signup`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ email: authEmail, password: authPassword, name: authName }),
-          });
-          const data = await res.json();
-          if (data.status === 'success') {
-              setUser(data.user);
-          } else {
-              setAuthError(data.message);
-          }
-      } catch (err) {
-          console.error('Signup error:', err);
-          setAuthError('Connection failed — check if backend is running on port 8000');
-      }
-  };
-
   const loadHistory = async () => {
       if (!user) return;
       try {
-          const res = await fetch(`${API_BASE}/api/sessions/history/${user.user_id}`);
+          const res = await authFetch(`${API_BASE}/api/sessions/history`);
           const data = await res.json();
           setHistory(data.sessions);
           setShowHistory(true);
@@ -331,14 +303,12 @@ const Index = () => {
     }
 
     const reviewPayload = {
-      reviewer_name: user?.name || reviewName || 'Anonymous',
       review_text: reviewText.trim(),
       rating: 0,
-      user_id: user?.user_id || '',
     };
 
     try {
-      const res = await fetch(`${API_BASE}/api/reviews`, {
+      const res = await authFetch(`${API_BASE}/api/reviews`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(reviewPayload),
@@ -379,8 +349,12 @@ const Index = () => {
     }
   };
   // Scenario Comparison: init SSE (parallel execution)
-  const initComparisonSSE = useCallback((cid: string) => {
-    const es = new EventSource(`${API_BASE}/api/${cid}/compare`);
+  const initComparisonSSE = useCallback(async (cid: string) => {
+    const token = await getAccessToken();
+    const url = token
+      ? `${API_BASE}/api/${cid}/compare?token=${encodeURIComponent(token)}`
+      : `${API_BASE}/api/${cid}/compare`;
+    const es = new EventSource(url);
     eventSourceRef.current = es;
     setIsThinking(true);
 
@@ -481,7 +455,7 @@ const Index = () => {
   const submitComparisonHumanInput = async (text: string, targetAgent: string = 'all') => {
     if (!comparisonId) return;
     try {
-      const response = await fetch(`${API_BASE}/api/${comparisonId}/comparison_human_input`, {
+      const response = await authFetch(`${API_BASE}/api/${comparisonId}/comparison_human_input`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ human_ip: text, target_agent: targetAgent }),
@@ -499,7 +473,7 @@ const Index = () => {
     setIsStarting(true);
     setError(null);
     try {
-      const res = await fetch(`${API_BASE}/api/comparison/create`, {
+      const res = await authFetch(`${API_BASE}/api/comparison/create`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -507,7 +481,6 @@ const Index = () => {
           option_b: optionB,
           context,
           board_type: boardType,
-          user_id: user?.user_id || ''
         }),
       });
       const data = await res.json();
@@ -559,97 +532,7 @@ const Index = () => {
     eventSourceRef.current?.close();
   };
 
-  // Auth screen
-if (!user) {
-    return (
-        <div className="min-h-svh flex flex-col bg-grid-pattern">
-            <div className="flex-1 flex flex-col items-center justify-center px-6">
-                <motion.div
-                    initial={{ opacity: 0, y: 24 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="text-center mb-8"
-                >
-                    <h1 className="text-5xl md:text-7xl font-serif font-bold tracking-tight mb-4 gold-gradient-text">
-                        SHADOW BOARD
-                    </h1>
-                    <p className="text-muted-foreground text-sm">
-                        AI-Powered Executive Decision Simulation
-                    </p>
-                </motion.div>
-
-                <motion.div
-                    initial={{ opacity: 0, y: 16 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.15 }}
-                    className="w-full max-w-md"
-                >
-                    <div className="glass-card-strong rounded-xl p-6 md:p-8">
-                        <div className="flex gap-4 mb-6">
-                            <button
-                                onClick={() => setAuthMode('login')}
-                                className={`flex-1 py-2 text-sm font-semibold uppercase tracking-wider rounded-lg transition-all ${
-                                    authMode === 'login'
-                                        ? 'gold-gradient text-primary-foreground'
-                                        : 'text-muted-foreground hover:text-foreground'
-                                }`}
-                            >
-                                Login
-                            </button>
-                            <button
-                                onClick={() => setAuthMode('signup')}
-                                className={`flex-1 py-2 text-sm font-semibold uppercase tracking-wider rounded-lg transition-all ${
-                                    authMode === 'signup'
-                                        ? 'gold-gradient text-primary-foreground'
-                                        : 'text-muted-foreground hover:text-foreground'
-                                }`}
-                            >
-                                Sign Up
-                            </button>
-                        </div>
-
-                        {authMode === 'signup' && (
-                            <input
-                                value={authName}
-                                onChange={(e) => setAuthName(e.target.value)}
-                                placeholder="Your name"
-                                className="w-full bg-secondary/40 border border-border rounded-lg p-3 text-sm text-foreground focus:outline-none focus:border-primary/40 transition-colors mb-3 placeholder:text-muted-foreground/50"
-                            />
-                        )}
-
-                        <input
-                            value={authEmail}
-                            onChange={(e) => setAuthEmail(e.target.value)}
-                            placeholder="Email"
-                            type="email"
-                            className="w-full bg-secondary/40 border border-border rounded-lg p-3 text-sm text-foreground focus:outline-none focus:border-primary/40 transition-colors mb-3 placeholder:text-muted-foreground/50"
-                        />
-
-                        <input
-                            value={authPassword}
-                            onChange={(e) => setAuthPassword(e.target.value)}
-                            placeholder="Password"
-                            type="password"
-                            onKeyDown={(e) => e.key === 'Enter' && (authMode === 'login' ? handleLogin() : handleSignup())}
-                            className="w-full bg-secondary/40 border border-border rounded-lg p-3 text-sm text-foreground focus:outline-none focus:border-primary/40 transition-colors mb-4 placeholder:text-muted-foreground/50"
-                        />
-
-                        {authError && (
-                            <p className="text-destructive text-xs mb-3">{authError}</p>
-                        )}
-
-                        <button
-                            onClick={authMode === 'login' ? handleLogin : handleSignup}
-                            className="w-full py-3 rounded-lg gold-gradient text-primary-foreground font-bold uppercase tracking-wider text-sm hover:opacity-90 transition-all"
-                        >
-                            {authMode === 'login' ? 'Login' : 'Create Account'}
-                        </button>
-                    </div>
-                </motion.div>
-            </div>
-            <AppFooter />
-        </div>
-    );
-}
+  if (!user) return <AuthPage />;
   const agentCount = new Set(messages.map(m => m.agent)).size;
   const roundCount = new Set(messages.filter(m => m.round).map(m => m.round)).size;
 
@@ -674,10 +557,10 @@ if (!user) {
 
         <div className="flex flex-wrap items-center gap-2">
           <span className="flex items-center gap-2 glass-card rounded-full px-4 py-2 text-[10px] font-mono text-muted-foreground">
-            Welcome, {user?.name || 'Guest'}
+            Welcome, {user?.user_metadata?.name || user?.email?.split('@')[0] || 'Guest'}
           </span>
           <button
-            onClick={() => setUser(null)}
+            onClick={signOut}
             className="flex items-center gap-2 glass-card rounded-full px-4 py-2 hover:bg-destructive/10 transition-colors"
           >
             <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Logout</span>
