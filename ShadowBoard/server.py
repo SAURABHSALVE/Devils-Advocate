@@ -204,15 +204,21 @@ def agents_research(session_id: str, current_user: dict = Depends(get_current_us
         yield "retry: 120000\n\n"
         yield sse_event("phase", {"phase": "research"})
 
+        def hb():
+            return sse_event("heartbeat", {"ts": time.time()})
+
         try:
+            yield hb()
             yield sse_event("agent_start", {"agent": "CFO", "action": "researching financial data"})
             task_cfo = run_research_cfo(full_question)
             yield sse_event("agent_message", {"agent": "CFO", "phase": "research", "text": task_cfo.output.raw})
 
+            yield hb()
             yield sse_event("agent_start", {"agent": "CMO", "action": "researching market data"})
             task_cmo = run_research_cmo(full_question)
             yield sse_event("agent_message", {"agent": "CMO", "phase": "research", "text": task_cmo.output.raw})
 
+            yield hb()
             yield sse_event("agent_start", {"agent": "Legal", "action": "researching regulations"})
             task_legal = run_research_legal(full_question)
             yield sse_event("agent_message", {"agent": "Legal", "phase": "research", "text": task_legal.output.raw})
@@ -223,18 +229,22 @@ def agents_research(session_id: str, current_user: dict = Depends(get_current_us
         # ── Round 1 ──
         yield sse_event("phase", {"phase": "debate", "round": 1})
 
+        yield hb()
         yield sse_event("agent_start", {"agent": "CFO", "action": "preparing opening statement"})
         debate_cfo = run_debate1_cfo(full_question, task_cfo, task_cmo, task_legal)
         yield sse_event("agent_message", {"agent": "CFO", "phase": "debate", "round": 1, "text": debate_cfo.output.raw})
 
+        yield hb()
         yield sse_event("agent_start", {"agent": "CMO", "action": "preparing opening statement"})
         debate_cmo = run_debate1_cmo(full_question, task_cfo, task_cmo, task_legal, debate_cfo)
         yield sse_event("agent_message", {"agent": "CMO", "phase": "debate", "round": 1, "text": debate_cmo.output.raw})
 
+        yield hb()
         yield sse_event("agent_start", {"agent": "Legal", "action": "preparing opening statement"})
         debate_legal = run_debate1_legal(full_question, task_cfo, task_cmo, task_legal, debate_cfo, debate_cmo)
         yield sse_event("agent_message", {"agent": "Legal", "phase": "debate", "round": 1, "text": debate_legal.output.raw})
 
+        yield hb()
         yield sse_event("agent_start", {"agent": "Devils Advocate", "action": "preparing challenges"})
         debate_da = run_debate1_da(full_question, task_cfo, task_cmo, task_legal, debate_cfo, debate_cmo, debate_legal)
         yield sse_event("agent_message", {"agent": "Devils Advocate", "phase": "debate", "round": 1, "text": debate_da.output.raw})
@@ -265,18 +275,22 @@ def agents_research(session_id: str, current_user: dict = Depends(get_current_us
         yield sse_event("resume", {"message": "Debate continuing"})
         yield sse_event("phase", {"phase": "debate", "round": 2})
 
+        yield hb()
         yield sse_event("agent_start", {"agent": "CFO", "action": "preparing rebuttal"})
         debate_cfo_2 = run_debate2_cfo(full_question, debate_cfo, debate_cmo, debate_legal, debate_da, cfo_input)
         yield sse_event("agent_message", {"agent": "CFO", "phase": "debate", "round": 2, "text": debate_cfo_2.output.raw})
 
+        yield hb()
         yield sse_event("agent_start", {"agent": "CMO", "action": "preparing rebuttal"})
         debate_cmo_2 = run_debate2_cmo(full_question, debate_cfo, debate_cmo, debate_legal, debate_da, debate_cfo_2, cmo_input)
         yield sse_event("agent_message", {"agent": "CMO", "phase": "debate", "round": 2, "text": debate_cmo_2.output.raw})
 
+        yield hb()
         yield sse_event("agent_start", {"agent": "Legal", "action": "preparing rebuttal"})
         debate_legal_2 = run_debate2_legal(full_question, debate_cfo, debate_cmo, debate_legal, debate_da, debate_cfo_2, debate_cmo_2, legal_input)
         yield sse_event("agent_message", {"agent": "Legal", "phase": "debate", "round": 2, "text": debate_legal_2.output.raw})
 
+        yield hb()
         yield sse_event("agent_start", {"agent": "Devils Advocate", "action": "preparing final challenge"})
         debate_da_2 = run_debate2_da(full_question, debate_cfo, debate_cmo, debate_legal, debate_da, debate_cfo_2, debate_cmo_2, debate_legal_2, da_input)
         yield sse_event("agent_message", {"agent": "Devils Advocate", "phase": "debate", "round": 2, "text": debate_da_2.output.raw})
@@ -286,18 +300,22 @@ def agents_research(session_id: str, current_user: dict = Depends(get_current_us
         all_context_r3 = [debate_cfo, debate_cmo, debate_legal, debate_da,
                           debate_cfo_2, debate_cmo_2, debate_legal_2, debate_da_2]
 
+        yield hb()
         yield sse_event("agent_start", {"agent": "CFO", "action": "final position"})
         debate_cfo_3 = run_debate3_cfo(full_question, all_context_r3)
         yield sse_event("agent_message", {"agent": "CFO", "phase": "final", "round": 3, "text": debate_cfo_3.output.raw})
 
+        yield hb()
         yield sse_event("agent_start", {"agent": "CMO", "action": "final position"})
         debate_cmo_3 = run_debate3_cmo(full_question, all_context_r3 + [debate_cfo_3])
         yield sse_event("agent_message", {"agent": "CMO", "phase": "final", "round": 3, "text": debate_cmo_3.output.raw})
 
+        yield hb()
         yield sse_event("agent_start", {"agent": "Legal", "action": "final position"})
         debate_legal_3 = run_debate3_legal(full_question, all_context_r3 + [debate_cfo_3, debate_cmo_3])
         yield sse_event("agent_message", {"agent": "Legal", "phase": "final", "round": 3, "text": debate_legal_3.output.raw})
 
+        yield hb()
         yield sse_event("agent_start", {"agent": "Devils Advocate", "action": "final challenge"})
         debate_da_3 = run_debate3_da(full_question, all_context_r3 + [debate_cfo_3, debate_cmo_3, debate_legal_3])
         yield sse_event("agent_message", {"agent": "Devils Advocate", "phase": "final", "round": 3, "text": debate_da_3.output.raw})
@@ -306,6 +324,7 @@ def agents_research(session_id: str, current_user: dict = Depends(get_current_us
         yield sse_event("phase", {"phase": "synthesis"})
         all_context_mod = all_context_r3 + [debate_cfo_3, debate_cmo_3, debate_legal_3, debate_da_3]
 
+        yield hb()
         yield sse_event("agent_start", {"agent": "Moderator", "action": "synthesizing debate"})
         moderator_task = run_moderator(full_question, all_context_mod)
         yield sse_event("agent_message", {"agent": "Moderator", "phase": "synthesis", "text": moderator_task.output.raw})
@@ -478,26 +497,35 @@ def run_comparison(
         yield sse_event("phase", {"phase": "scenario_a_research", "scenario": "A"})
         yield sse_event("phase", {"phase": "scenario_b_research", "scenario": "B"})
 
+        def hb():
+            return sse_event("heartbeat", {"ts": time.time()})
+
+        yield hb()
         yield sse_event("agent_start", {"agent": "CFO", "action": "researching Option A", "scenario": "A"})
         task_cfo_a = run_research_cfo(full_a)
         yield sse_event("agent_message", {"agent": "CFO", "phase": "research", "scenario": "A", "text": task_cfo_a.output.raw})
 
+        yield hb()
         yield sse_event("agent_start", {"agent": "CFO", "action": "researching Option B", "scenario": "B"})
         task_cfo_b = run_research_cfo(full_b)
         yield sse_event("agent_message", {"agent": "CFO", "phase": "research", "scenario": "B", "text": task_cfo_b.output.raw})
 
+        yield hb()
         yield sse_event("agent_start", {"agent": "CMO", "action": "researching market data for Option A", "scenario": "A"})
         task_cmo_a = run_research_cmo(full_a)
         yield sse_event("agent_message", {"agent": "CMO", "phase": "research", "scenario": "A", "text": task_cmo_a.output.raw})
 
+        yield hb()
         yield sse_event("agent_start", {"agent": "CMO", "action": "researching market data for Option B", "scenario": "B"})
         task_cmo_b = run_research_cmo(full_b)
         yield sse_event("agent_message", {"agent": "CMO", "phase": "research", "scenario": "B", "text": task_cmo_b.output.raw})
 
+        yield hb()
         yield sse_event("agent_start", {"agent": "Legal", "action": "researching regulations for Option A", "scenario": "A"})
         task_legal_a = run_research_legal(full_a)
         yield sse_event("agent_message", {"agent": "Legal", "phase": "research", "scenario": "A", "text": task_legal_a.output.raw})
 
+        yield hb()
         yield sse_event("agent_start", {"agent": "Legal", "action": "researching regulations for Option B", "scenario": "B"})
         task_legal_b = run_research_legal(full_b)
         yield sse_event("agent_message", {"agent": "Legal", "phase": "research", "scenario": "B", "text": task_legal_b.output.raw})
@@ -505,34 +533,42 @@ def run_comparison(
         yield sse_event("phase", {"phase": "scenario_a_debate1", "scenario": "A", "round": 1})
         yield sse_event("phase", {"phase": "scenario_b_debate1", "scenario": "B", "round": 1})
 
+        yield hb()
         yield sse_event("agent_start", {"agent": "CFO", "action": "opening statement for Option A", "scenario": "A"})
         debate_cfo_a = run_debate1_cfo(full_a, task_cfo_a, task_cmo_a, task_legal_a)
         yield sse_event("agent_message", {"agent": "CFO", "phase": "debate", "round": 1, "scenario": "A", "text": debate_cfo_a.output.raw})
 
+        yield hb()
         yield sse_event("agent_start", {"agent": "CFO", "action": "opening statement for Option B", "scenario": "B"})
         debate_cfo_b = run_debate1_cfo(full_b, task_cfo_b, task_cmo_b, task_legal_b)
         yield sse_event("agent_message", {"agent": "CFO", "phase": "debate", "round": 1, "scenario": "B", "text": debate_cfo_b.output.raw})
 
+        yield hb()
         yield sse_event("agent_start", {"agent": "CMO", "action": "opening statement for Option A", "scenario": "A"})
         debate_cmo_a = run_debate1_cmo(full_a, task_cfo_a, task_cmo_a, task_legal_a, debate_cfo_a)
         yield sse_event("agent_message", {"agent": "CMO", "phase": "debate", "round": 1, "scenario": "A", "text": debate_cmo_a.output.raw})
 
+        yield hb()
         yield sse_event("agent_start", {"agent": "CMO", "action": "opening statement for Option B", "scenario": "B"})
         debate_cmo_b = run_debate1_cmo(full_b, task_cfo_b, task_cmo_b, task_legal_b, debate_cfo_b)
         yield sse_event("agent_message", {"agent": "CMO", "phase": "debate", "round": 1, "scenario": "B", "text": debate_cmo_b.output.raw})
 
+        yield hb()
         yield sse_event("agent_start", {"agent": "Legal", "action": "opening statement for Option A", "scenario": "A"})
         debate_legal_a = run_debate1_legal(full_a, task_cfo_a, task_cmo_a, task_legal_a, debate_cfo_a, debate_cmo_a)
         yield sse_event("agent_message", {"agent": "Legal", "phase": "debate", "round": 1, "scenario": "A", "text": debate_legal_a.output.raw})
 
+        yield hb()
         yield sse_event("agent_start", {"agent": "Legal", "action": "opening statement for Option B", "scenario": "B"})
         debate_legal_b = run_debate1_legal(full_b, task_cfo_b, task_cmo_b, task_legal_b, debate_cfo_b, debate_cmo_b)
         yield sse_event("agent_message", {"agent": "Legal", "phase": "debate", "round": 1, "scenario": "B", "text": debate_legal_b.output.raw})
 
+        yield hb()
         yield sse_event("agent_start", {"agent": "Devils Advocate", "action": "challenges for Option A", "scenario": "A"})
         debate_da_a = run_debate1_da(full_a, task_cfo_a, task_cmo_a, task_legal_a, debate_cfo_a, debate_cmo_a, debate_legal_a)
         yield sse_event("agent_message", {"agent": "Devils Advocate", "phase": "debate", "round": 1, "scenario": "A", "text": debate_da_a.output.raw})
 
+        yield hb()
         yield sse_event("agent_start", {"agent": "Devils Advocate", "action": "challenges for Option B", "scenario": "B"})
         debate_da_b = run_debate1_da(full_b, task_cfo_b, task_cmo_b, task_legal_b, debate_cfo_b, debate_cmo_b, debate_legal_b)
         yield sse_event("agent_message", {"agent": "Devils Advocate", "phase": "debate", "round": 1, "scenario": "B", "text": debate_da_b.output.raw})
@@ -565,34 +601,42 @@ def run_comparison(
         yield sse_event("phase", {"phase": "scenario_a_debate2", "scenario": "A", "round": 2})
         yield sse_event("phase", {"phase": "scenario_b_debate2", "scenario": "B", "round": 2})
 
+        yield hb()
         yield sse_event("agent_start", {"agent": "CFO", "action": "rebuttal for Option A", "scenario": "A"})
         debate_cfo_2a = run_debate2_cfo(full_a, debate_cfo_a, debate_cmo_a, debate_legal_a, debate_da_a, cfo_input)
         yield sse_event("agent_message", {"agent": "CFO", "phase": "debate", "round": 2, "scenario": "A", "text": debate_cfo_2a.output.raw})
 
+        yield hb()
         yield sse_event("agent_start", {"agent": "CFO", "action": "rebuttal for Option B", "scenario": "B"})
         debate_cfo_2b = run_debate2_cfo(full_b, debate_cfo_b, debate_cmo_b, debate_legal_b, debate_da_b, cfo_input)
         yield sse_event("agent_message", {"agent": "CFO", "phase": "debate", "round": 2, "scenario": "B", "text": debate_cfo_2b.output.raw})
 
+        yield hb()
         yield sse_event("agent_start", {"agent": "CMO", "action": "rebuttal for Option A", "scenario": "A"})
         debate_cmo_2a = run_debate2_cmo(full_a, debate_cfo_a, debate_cmo_a, debate_legal_a, debate_da_a, debate_cfo_2a, cmo_input)
         yield sse_event("agent_message", {"agent": "CMO", "phase": "debate", "round": 2, "scenario": "A", "text": debate_cmo_2a.output.raw})
 
+        yield hb()
         yield sse_event("agent_start", {"agent": "CMO", "action": "rebuttal for Option B", "scenario": "B"})
         debate_cmo_2b = run_debate2_cmo(full_b, debate_cfo_b, debate_cmo_b, debate_legal_b, debate_da_b, debate_cfo_2b, cmo_input)
         yield sse_event("agent_message", {"agent": "CMO", "phase": "debate", "round": 2, "scenario": "B", "text": debate_cmo_2b.output.raw})
 
+        yield hb()
         yield sse_event("agent_start", {"agent": "Legal", "action": "rebuttal for Option A", "scenario": "A"})
         debate_legal_2a = run_debate2_legal(full_a, debate_cfo_a, debate_cmo_a, debate_legal_a, debate_da_a, debate_cfo_2a, debate_cmo_2a, legal_input)
         yield sse_event("agent_message", {"agent": "Legal", "phase": "debate", "round": 2, "scenario": "A", "text": debate_legal_2a.output.raw})
 
+        yield hb()
         yield sse_event("agent_start", {"agent": "Legal", "action": "rebuttal for Option B", "scenario": "B"})
         debate_legal_2b = run_debate2_legal(full_b, debate_cfo_b, debate_cmo_b, debate_legal_b, debate_da_b, debate_cfo_2b, debate_cmo_2b, legal_input)
         yield sse_event("agent_message", {"agent": "Legal", "phase": "debate", "round": 2, "scenario": "B", "text": debate_legal_2b.output.raw})
 
+        yield hb()
         yield sse_event("agent_start", {"agent": "Devils Advocate", "action": "final challenge for Option A", "scenario": "A"})
         debate_da_2a = run_debate2_da(full_a, debate_cfo_a, debate_cmo_a, debate_legal_a, debate_da_a, debate_cfo_2a, debate_cmo_2a, debate_legal_2a, da_input)
         yield sse_event("agent_message", {"agent": "Devils Advocate", "phase": "debate", "round": 2, "scenario": "A", "text": debate_da_2a.output.raw})
 
+        yield hb()
         yield sse_event("agent_start", {"agent": "Devils Advocate", "action": "final challenge for Option B", "scenario": "B"})
         debate_da_2b = run_debate2_da(full_b, debate_cfo_b, debate_cmo_b, debate_legal_b, debate_da_b, debate_cfo_2b, debate_cmo_2b, debate_legal_2b, da_input)
         yield sse_event("agent_message", {"agent": "Devils Advocate", "phase": "debate", "round": 2, "scenario": "B", "text": debate_da_2b.output.raw})
@@ -604,34 +648,42 @@ def run_comparison(
         all_r3_a = [debate_cfo_a, debate_cmo_a, debate_legal_a, debate_da_a, debate_cfo_2a, debate_cmo_2a, debate_legal_2a, debate_da_2a]
         all_r3_b = [debate_cfo_b, debate_cmo_b, debate_legal_b, debate_da_b, debate_cfo_2b, debate_cmo_2b, debate_legal_2b, debate_da_2b]
 
+        yield hb()
         yield sse_event("agent_start", {"agent": "CFO", "action": "final position on Option A", "scenario": "A"})
         debate_cfo_3a = run_debate3_cfo(full_a, all_r3_a)
         yield sse_event("agent_message", {"agent": "CFO", "phase": "final", "round": 3, "scenario": "A", "text": debate_cfo_3a.output.raw})
 
+        yield hb()
         yield sse_event("agent_start", {"agent": "CFO", "action": "final position on Option B", "scenario": "B"})
         debate_cfo_3b = run_debate3_cfo(full_b, all_r3_b)
         yield sse_event("agent_message", {"agent": "CFO", "phase": "final", "round": 3, "scenario": "B", "text": debate_cfo_3b.output.raw})
 
+        yield hb()
         yield sse_event("agent_start", {"agent": "CMO", "action": "final position on Option A", "scenario": "A"})
         debate_cmo_3a = run_debate3_cmo(full_a, all_r3_a + [debate_cfo_3a])
         yield sse_event("agent_message", {"agent": "CMO", "phase": "final", "round": 3, "scenario": "A", "text": debate_cmo_3a.output.raw})
 
+        yield hb()
         yield sse_event("agent_start", {"agent": "CMO", "action": "final position on Option B", "scenario": "B"})
         debate_cmo_3b = run_debate3_cmo(full_b, all_r3_b + [debate_cfo_3b])
         yield sse_event("agent_message", {"agent": "CMO", "phase": "final", "round": 3, "scenario": "B", "text": debate_cmo_3b.output.raw})
 
+        yield hb()
         yield sse_event("agent_start", {"agent": "Legal", "action": "final position on Option A", "scenario": "A"})
         debate_legal_3a = run_debate3_legal(full_a, all_r3_a + [debate_cfo_3a, debate_cmo_3a])
         yield sse_event("agent_message", {"agent": "Legal", "phase": "final", "round": 3, "scenario": "A", "text": debate_legal_3a.output.raw})
 
+        yield hb()
         yield sse_event("agent_start", {"agent": "Legal", "action": "final position on Option B", "scenario": "B"})
         debate_legal_3b = run_debate3_legal(full_b, all_r3_b + [debate_cfo_3b, debate_cmo_3b])
         yield sse_event("agent_message", {"agent": "Legal", "phase": "final", "round": 3, "scenario": "B", "text": debate_legal_3b.output.raw})
 
+        yield hb()
         yield sse_event("agent_start", {"agent": "Devils Advocate", "action": "final challenge on Option A", "scenario": "A"})
         debate_da_3a = run_debate3_da(full_a, all_r3_a + [debate_cfo_3a, debate_cmo_3a, debate_legal_3a])
         yield sse_event("agent_message", {"agent": "Devils Advocate", "phase": "final", "round": 3, "scenario": "A", "text": debate_da_3a.output.raw})
 
+        yield hb()
         yield sse_event("agent_start", {"agent": "Devils Advocate", "action": "final challenge on Option B", "scenario": "B"})
         debate_da_3b = run_debate3_da(full_b, all_r3_b + [debate_cfo_3b, debate_cmo_3b, debate_legal_3b])
         yield sse_event("agent_message", {"agent": "Devils Advocate", "phase": "final", "round": 3, "scenario": "B", "text": debate_da_3b.output.raw})
@@ -639,6 +691,7 @@ def run_comparison(
         # ── Moderator ──
         yield sse_event("phase", {"phase": "scenario_a_synthesis", "scenario": "A"})
         all_mod_a = all_r3_a + [debate_cfo_3a, debate_cmo_3a, debate_legal_3a, debate_da_3a]
+        yield hb()
         yield sse_event("agent_start", {"agent": "Moderator", "action": "synthesizing Option A debate", "scenario": "A"})
         moderator_a = run_moderator(full_a, all_mod_a)
         yield sse_event("agent_message", {"agent": "Moderator", "phase": "synthesis", "scenario": "A", "text": moderator_a.output.raw})
@@ -648,6 +701,7 @@ def run_comparison(
 
         yield sse_event("phase", {"phase": "scenario_b_synthesis", "scenario": "B"})
         all_mod_b = all_r3_b + [debate_cfo_3b, debate_cmo_3b, debate_legal_3b, debate_da_3b]
+        yield hb()
         yield sse_event("agent_start", {"agent": "Moderator", "action": "synthesizing Option B debate", "scenario": "B"})
         moderator_b = run_moderator(full_b, all_mod_b)
         yield sse_event("agent_message", {"agent": "Moderator", "phase": "synthesis", "scenario": "B", "text": moderator_b.output.raw})
