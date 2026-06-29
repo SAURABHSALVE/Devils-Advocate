@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Depends
+from fastapi import FastAPI, Depends, Query, HTTPException
 app = FastAPI()
 from pydantic import BaseModel
 import uuid
@@ -18,7 +18,7 @@ from fastapi import UploadFile, File
 from agents_creation import set_board_expertise
 from supabase_db import (
     save_session, get_user_sessions, save_comparison,
-    save_review, get_reviews, get_profile
+    save_review, get_reviews, get_review_stats, get_profile
 )
 from auth_middleware import get_current_user, get_optional_user
 from memory import get_relevant_memories, save_debate_memory
@@ -63,7 +63,10 @@ class ComparisonRequest(BaseModel):
 
 class ReviewRequest(BaseModel):
     review_text: str
-    rating: int = 0
+    rating: int = 5
+
+    def validate_rating(self) -> int:
+        return max(1, min(5, self.rating))
 
 class ChatRequest(BaseModel):
     message: str
@@ -352,8 +355,13 @@ def human_input_endpoint(
 # ── Reviews ───────────────────────────────────────────────────────────────────
 
 @app.get("/api/reviews")
-def list_reviews():
-    return {"reviews": get_reviews()}
+def list_reviews(
+    limit: int = Query(10, ge=1, le=50),
+    offset: int = Query(0, ge=0),
+):
+    result = get_reviews(limit=limit, offset=offset)
+    stats = get_review_stats()
+    return {"reviews": result["reviews"], "total": result["total"], "stats": stats}
 
 
 @app.post("/api/reviews")
@@ -361,13 +369,23 @@ def create_review(
     request: ReviewRequest,
     current_user: dict = Depends(get_current_user),
 ):
+    if not request.review_text.strip():
+        raise HTTPException(status_code=400, detail="Review text cannot be empty")
+    rating = max(1, min(5, request.rating))
     review_id = str(uuid.uuid4())
     profile = get_profile(current_user["user_id"])
-    reviewer_name = (profile or {}).get("name") or current_user["email"]
-    save_review(review_id, reviewer_name, request.review_text, current_user["user_id"], request.rating)
-    reviews = get_reviews()
-    created = next((r for r in reviews if r["review_id"] == review_id), None)
-    return {"status": "success", "review": created or {"review_id": review_id}}
+    reviewer_name = (profile or {}).get("name") or current_user["email"].split("@")[0]
+    save_review(review_id, reviewer_name, request.review_text.strip(), current_user["user_id"], rating)
+    result = get_reviews(limit=1, offset=0)
+    created = next((r for r in result["reviews"] if r["review_id"] == review_id), None)
+    return {"status": "success", "review": created or {
+        "review_id": review_id,
+        "reviewer_name": reviewer_name,
+        "review_text": request.review_text.strip(),
+        "rating": rating,
+        "helpful_count": 0,
+        "created_at": __import__("datetime").datetime.utcnow().isoformat() + "Z",
+    }}
 
 
 # ── Scenario comparison ───────────────────────────────────────────────────────

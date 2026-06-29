@@ -93,32 +93,56 @@ def save_comparison(comparison_id: str, user_id: str, option_a: str,
 # ── Reviews ───────────────────────────────────────────────────────────────────
 
 def save_review(review_id: str, reviewer_name: str, review_text: str,
-                user_id: str | None = None, rating: int = 0) -> None:
+                user_id: str | None = None, rating: int = 5) -> None:
     try:
         _client().table("reviews").insert({
             "review_id": review_id,
             "user_id": user_id,
             "reviewer_name": reviewer_name,
-            "rating": max(0, min(5, rating)),
+            "rating": max(1, min(5, rating)),
             "review_text": review_text[:2000],
         }).execute()
     except Exception as e:
         print(f"[supabase_db] save_review error: {e}")
 
 
-def get_reviews() -> list[dict]:
+def get_reviews(limit: int = 10, offset: int = 0) -> dict:
     try:
         resp = (
             _client()
             .table("reviews")
-            .select("review_id, user_id, reviewer_name, review_text, rating, created_at")
+            .select("review_id, user_id, reviewer_name, review_text, rating, helpful_count, created_at", count="exact")
             .order("created_at", desc=True)
+            .range(offset, offset + limit - 1)
             .execute()
         )
-        return resp.data or []
+        return {"reviews": resp.data or [], "total": resp.count or 0}
     except Exception as e:
         print(f"[supabase_db] get_reviews error: {e}")
-        return []
+        return {"reviews": [], "total": 0}
+
+
+def get_review_stats() -> dict:
+    try:
+        resp = (
+            _client()
+            .table("reviews")
+            .select("rating")
+            .execute()
+        )
+        rows = resp.data or []
+        if not rows:
+            return {"avg_rating": 0.0, "total": 0, "distribution": {}}
+        total = len(rows)
+        avg = sum(r["rating"] for r in rows) / total
+        distribution = {}
+        for r in rows:
+            key = str(r["rating"])
+            distribution[key] = distribution.get(key, 0) + 1
+        return {"avg_rating": round(avg, 1), "total": total, "distribution": distribution}
+    except Exception as e:
+        print(f"[supabase_db] get_review_stats error: {e}")
+        return {"avg_rating": 0.0, "total": 0, "distribution": {}}
 
 
 # ── Profile ───────────────────────────────────────────────────────────────────

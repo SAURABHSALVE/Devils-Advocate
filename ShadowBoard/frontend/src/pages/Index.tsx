@@ -5,6 +5,7 @@ import PhaseIndicator from '@/components/PhaseIndicator';
 import MessageCard, { type AgentMessage } from '@/components/MessageCard';
 import HumanInputPanel from '@/components/HumanInputPanel';
 import TypingIndicator from '@/components/TypingIndicator';
+import ReviewsSection from '@/components/ReviewsSection';
 import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
 import { useAuth } from '@/context/AuthContext';
 import AuthPage from '@/components/AuthPage';
@@ -55,16 +56,11 @@ const Index = () => {
   const [boardType, setBoardType] = useState('tech');
   const { user, signOut, getAccessToken } = useAuth();
   const howItWorksRef = useRef<HTMLDivElement | null>(null);
-  const reviewsRef = useRef<HTMLDivElement | null>(null);
+  const reviewsRef = useRef<HTMLElement | null>(null);
   const [showHistory, setShowHistory] = useState(false);
   const [history, setHistory] = useState<any[]>([]);
   const [compareSession, setCompareSession] = useState<any>(null);
   const [compareWith, setCompareWith] = useState<any>(null);
-  const [reviews, setReviews] = useState<any[]>([]);
-  const [reviewName, setReviewName] = useState('');
-  const [reviewText, setReviewText] = useState('');
-  const [reviewError, setReviewError] = useState('');
-  const [reviewSuccess, setReviewSuccess] = useState('');
 
   // Scenario Comparison Mode
   const [mode, setMode] = useState<'single' | 'compare'>('single');
@@ -89,7 +85,7 @@ const Index = () => {
     scrollRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, []);
 
-  const scrollToSection = (ref: React.RefObject<HTMLDivElement>) => {
+  const scrollToSection = (ref: React.RefObject<HTMLElement | HTMLDivElement>) => {
     ref.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
 
@@ -263,91 +259,6 @@ const Index = () => {
       }
   };
 
-  const loadReviews = async () => {
-    try {
-      const res = await fetch(`${API_BASE}/api/reviews`);
-      const data = await res.json();
-      // Get local reviews for current user
-      const localReviews = JSON.parse(window.localStorage.getItem('shadowboard_reviews') || '[]');
-      const serverReviews = Array.isArray(data.reviews) ? data.reviews : [];
-      
-      // Merge: server reviews + local reviews (deduplicated by review_id)
-      const allReviews = [...serverReviews];
-      localReviews.forEach((localRev: any) => {
-        if (!allReviews.some(r => r.review_id === localRev.review_id)) {
-          allReviews.push(localRev);
-        }
-      });
-      setReviews(allReviews);
-    } catch (err) {
-      console.error('Failed to load reviews:', err);
-      // Fallback to local only
-      const localReviews = JSON.parse(window.localStorage.getItem('shadowboard_reviews') || '[]');
-      setReviews(Array.isArray(localReviews) ? localReviews : []);
-    }
-  };
-
-  useEffect(() => {
-    loadReviews();
-  }, []);
-
-  // Reload reviews when user logs in/out
-  useEffect(() => {
-    loadReviews();
-  }, [user]);
-
-  const submitReview = async () => {
-    if (!reviewText.trim()) {
-      setReviewError('Please enter a review message.');
-      return;
-    }
-
-    const reviewPayload = {
-      review_text: reviewText.trim(),
-      rating: 0,
-    };
-
-    try {
-      const res = await authFetch(`${API_BASE}/api/reviews`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(reviewPayload),
-      });
-
-      if (!res.ok) {
-        throw new Error('Failed to save review to backend.');
-      }
-
-      const data = await res.json();
-      const createdReview = data.review || {
-        review_id: `local-${Date.now()}`,
-        ...reviewPayload,
-        created_at: new Date().toISOString(),
-      };
-
-      setReviews((prev) => [createdReview, ...prev]);
-      setReviewText('');
-      setReviewError('');
-      setReviewSuccess('Review saved successfully.');
-    } catch (err) {
-      console.warn('Review save failed, storing locally:', err);
-      const newReview = {
-        review_id: `local-${Date.now()}`,
-        reviewer_name: reviewPayload.reviewer_name,
-        review_text: reviewPayload.review_text,
-        created_at: new Date().toISOString(),
-      };
-      const localReviews = JSON.parse(window.localStorage.getItem('shadowboard_reviews') || '[]');
-      const updatedLocalReviews = [newReview, ...(Array.isArray(localReviews) ? localReviews : [])];
-      window.localStorage.setItem('shadowboard_reviews', JSON.stringify(updatedLocalReviews));
-      setReviews((prev) => [newReview, ...prev]);
-      setReviewText('');
-      setReviewError('');
-      setReviewSuccess('Review saved locally.');
-    } finally {
-      setTimeout(() => setReviewSuccess(''), 4000);
-    }
-  };
   // Scenario Comparison: init SSE (parallel execution)
   const initComparisonSSE = useCallback(async (cid: string) => {
     const token = await getAccessToken();
@@ -979,60 +890,10 @@ const Index = () => {
             </div>
           </motion.div>
 
-          <section ref={reviewsRef} id="reviews" className="w-full max-w-4xl mx-auto px-4 py-10">
-            <div className="mb-8 text-center">
-              <p className="text-[10px] uppercase tracking-[0.24em] text-muted-foreground mb-2">Reviews</p>
-              <h2 className="font-serif text-3xl font-semibold text-foreground">What users say about Shadow Board</h2>
-              <p className="max-w-2xl mx-auto text-sm text-muted-foreground mt-3">Only real user reviews appear here. Submit yours to help new visitors see authentic feedback.</p>
-            </div>
-
-            <div className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
-              <div className="space-y-4">
-                {reviews.length === 0 ? (
-                  <div className="rounded-3xl border border-border bg-secondary/70 p-6 text-sm text-muted-foreground">No real user reviews yet. Leave the first one to start the feed.</div>
-                ) : (
-                  reviews.slice(0, 4).map((review) => (
-                    <div key={review.review_id} className="rounded-3xl border border-border bg-slate-950/90 p-6 shadow-lg shadow-slate-950/20">
-                      <div className="flex items-center justify-between gap-3 mb-4">
-                        <span className="text-sm font-semibold text-foreground">{review.reviewer_name || 'Anonymous'}</span>
-                        <span className="text-[10px] uppercase tracking-[0.24em] text-muted-foreground">{new Date(review.created_at).toLocaleDateString()}</span>
-                      </div>
-                      <p className="text-sm leading-6 text-muted-foreground whitespace-pre-wrap">{review.review_text}</p>
-                    </div>
-                  ))
-                )}
-              </div>
-
-              <div className="rounded-3xl border border-border bg-slate-950/90 p-6 shadow-[0_20px_50px_-20px_rgba(15,23,42,0.75)]">
-                <p className="text-xs uppercase tracking-[0.24em] text-muted-foreground mb-3">Share your note</p>
-                <h3 className="text-2xl font-semibold text-foreground mb-4">Add a quick review</h3>
-                <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Name</label>
-                <input
-                  type="text"
-                  value={user?.name || reviewName}
-                  onChange={(e) => setReviewName(e.target.value)}
-                  placeholder="Your name"
-                  className="w-full rounded-3xl border border-border bg-slate-950/80 px-4 py-3 text-sm text-foreground mt-2 mb-4 focus:outline-none focus:border-primary/40"
-                />
-                <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Your review</label>
-                <textarea
-                  value={reviewText}
-                  onChange={(e) => setReviewText(e.target.value)}
-                  rows={5}
-                  placeholder="How did Shadow Board help your decision process?"
-                  className="w-full rounded-3xl border border-border bg-slate-950/80 px-4 py-3 text-sm text-foreground mt-2 mb-4 focus:outline-none focus:border-primary/40"
-                />
-                {reviewError && <p className="text-xs text-destructive mb-3">{reviewError}</p>}
-                {reviewSuccess && <p className="text-xs text-foreground/80 mb-3">{reviewSuccess}</p>}
-                <button
-                  onClick={submitReview}
-                  className="w-full rounded-3xl bg-gradient-to-r from-primary to-amber-400 px-4 py-3 text-sm font-semibold uppercase tracking-wider text-slate-950 transition-all hover:brightness-110"
-                >
-                  Publish review
-                </button>
-              </div>
-            </div>
-          </section>
+          <ReviewsSection
+            getAccessToken={getAccessToken}
+            sectionRef={reviewsRef as React.RefObject<HTMLElement>}
+          />
         </div>
 
         <AppFooter />
