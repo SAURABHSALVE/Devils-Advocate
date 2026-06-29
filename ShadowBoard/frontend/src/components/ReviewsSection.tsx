@@ -2,8 +2,8 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Star, ChevronDown, Loader2, CheckCircle2, AlertCircle, ThumbsUp, Pencil, Trash2, X, Check } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
+import { supabase } from '@/lib/supabase';
 
-const API_BASE = (import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000').replace(/\/$/, '');
 const PAGE_SIZE = 6;
 
 // ── Helpers ────────────────────────────────────────────────────────────────
@@ -118,11 +118,10 @@ interface ReviewStats {
 // ── Main Component ─────────────────────────────────────────────────────────
 
 interface ReviewsSectionProps {
-  getAccessToken: () => Promise<string | null>;
   sectionRef?: React.RefObject<HTMLElement>;
 }
 
-export default function ReviewsSection({ getAccessToken, sectionRef }: ReviewsSectionProps) {
+export default function ReviewsSection({ sectionRef }: ReviewsSectionProps) {
   const { user } = useAuth();
 
   const [reviews, setReviews] = useState<Review[]>([]);
@@ -147,28 +146,28 @@ export default function ReviewsSection({ getAccessToken, sectionRef }: ReviewsSe
 
   const userName = user?.user_metadata?.name || user?.email?.split('@')[0] || 'You';
 
-  const authFetch = useCallback(async (url: string, opts: RequestInit = {}) => {
-    const token = await getAccessToken();
-    return fetch(url, {
-      ...opts,
-      headers: {
-        ...(opts.headers as Record<string, string> || {}),
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      },
-    });
-  }, [getAccessToken]);
-
   const fetchReviews = useCallback(async (offset = 0, append = false) => {
     try {
-      const res = await fetch(`${API_BASE}/api/reviews?limit=${PAGE_SIZE}&offset=${offset}`);
-      if (!res.ok) throw new Error();
-      const data = await res.json();
-      const fetched: Review[] = data.reviews ?? [];
+      const { data, count, error } = await supabase
+        .from('reviews')
+        .select('review_id, user_id, reviewer_name, review_text, rating, helpful_count, created_at', { count: 'exact' })
+        .order('created_at', { ascending: false })
+        .range(offset, offset + PAGE_SIZE - 1);
+      if (error) throw error;
+      const fetched: Review[] = data ?? [];
       setReviews(prev => append ? [...prev, ...fetched] : fetched);
-      setTotal(data.total ?? fetched.length);
-      if (data.stats) setStats(data.stats);
+      const total = count ?? fetched.length;
+      setTotal(total);
+      // Compute stats from all ratings via a separate lightweight query
+      const { data: allRatings } = await supabase.from('reviews').select('rating');
+      if (allRatings && allRatings.length > 0) {
+        const dist: Record<string, number> = {};
+        allRatings.forEach(r => { dist[r.rating] = (dist[r.rating] || 0) + 1; });
+        const avg = allRatings.reduce((s, r) => s + r.rating, 0) / allRatings.length;
+        setStats({ avg_rating: parseFloat(avg.toFixed(1)), total: allRatings.length, distribution: dist });
+      }
     } catch {
-      // silently fail — no backend when on Vercel without VITE_API_URL
+      // silent
     } finally {
       setLoading(false);
       setLoadingMore(false);
@@ -184,31 +183,29 @@ export default function ReviewsSection({ getAccessToken, sectionRef }: ReviewsSe
 
   const handleSubmit = async () => {
     if (!reviewText.trim()) { setFormError('Please write something before submitting.'); return; }
-    if (rating < 1 || rating > 5) { setFormError('Please select a star rating.'); return; }
+    if (!user) { setFormError('You must be signed in to post a review.'); return; }
     setSubmitting(true);
     setFormError('');
     try {
-      const res = await authFetch(`${API_BASE}/api/reviews`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ review_text: reviewText.trim(), rating }),
-      });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.detail || 'Failed to submit');
-      }
-      const data = await res.json();
-      const created: Review = data.review;
-      if (created) {
-        setReviews(prev => [created, ...prev]);
-        setTotal(t => t + 1);
-        setStats(s => s ? {
-          ...s,
-          avg_rating: parseFloat(((s.avg_rating * s.total + rating) / (s.total + 1)).toFixed(1)),
-          total: s.total + 1,
-          distribution: { ...s.distribution, [rating]: (s.distribution[rating] || 0) + 1 },
-        } : null);
-      }
+      const newReview = {
+        review_id: crypto.randomUUID(),
+        user_id: user.id,
+        reviewer_name: userName,
+        review_text: reviewText.trim().slice(0, 2000),
+        rating,
+        helpful_count: 0,
+      };
+      const { data, error } = await supabase.from('reviews').insert(newReview).select().single();
+      if (error) throw error;
+      const created: Review = data;
+      setReviews(prev => [created, ...prev]);
+      setTotal(t => t + 1);
+      setStats(s => s ? {
+        ...s,
+        avg_rating: parseFloat(((s.avg_rating * s.total + rating) / (s.total + 1)).toFixed(1)),
+        total: s.total + 1,
+        distribution: { ...s.distribution, [rating]: (s.distribution[rating] || 0) + 1 },
+      } : { avg_rating: rating, total: 1, distribution: { [rating]: 1 } });
       setReviewText('');
       setRating(5);
       setFormSuccess('Review published! Thank you.');
@@ -237,15 +234,14 @@ export default function ReviewsSection({ getAccessToken, sectionRef }: ReviewsSe
     if (!editText.trim()) return;
     setEditSaving(true);
     try {
-      const res = await authFetch(`${API_BASE}/api/reviews/${reviewId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ review_text: editText.trim(), rating: editRating }),
-      });
-      if (!res.ok) throw new Error();
-      const data = await res.json();
+      const { error } = await supabase
+        .from('reviews')
+        .update({ review_text: editText.trim().slice(0, 2000), rating: editRating })
+        .eq('review_id', reviewId)
+        .eq('user_id', user!.id);
+      if (error) throw error;
       setReviews(prev => prev.map(r =>
-        r.review_id === reviewId ? { ...r, review_text: editText.trim(), rating: editRating, ...data.review } : r
+        r.review_id === reviewId ? { ...r, review_text: editText.trim(), rating: editRating } : r
       ));
       cancelEdit();
     } catch {
@@ -258,8 +254,12 @@ export default function ReviewsSection({ getAccessToken, sectionRef }: ReviewsSe
   const handleDelete = async (reviewId: string) => {
     setDeletingId(reviewId);
     try {
-      const res = await authFetch(`${API_BASE}/api/reviews/${reviewId}`, { method: 'DELETE' });
-      if (!res.ok) throw new Error();
+      const { error } = await supabase
+        .from('reviews')
+        .delete()
+        .eq('review_id', reviewId)
+        .eq('user_id', user!.id);
+      if (error) throw error;
       setReviews(prev => prev.filter(r => r.review_id !== reviewId));
       setTotal(t => t - 1);
       setStats(s => s ? { ...s, total: s.total - 1 } : null);

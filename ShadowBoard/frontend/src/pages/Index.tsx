@@ -891,7 +891,6 @@ const Index = () => {
           </motion.div>
 
           <ReviewsSection
-            getAccessToken={getAccessToken}
             sectionRef={reviewsRef as React.RefObject<HTMLElement>}
           />
         </div>
